@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -120,5 +120,36 @@ describe("RunLock", () => {
 
     writeFileSync(join(lockDir, "holder.json"), "{ not json");
     expect(lock.readHolder()).toBeNull();
+  });
+
+  it("does not delete a peer's lock on release", () => {
+    const lockDir = join(tempDir(), "run.lock");
+    const lock = new RunLock({ lockDir });
+    lock.tryAcquire("qa ci");
+
+    writeFileSync(
+      join(lockDir, "holder.json"),
+      JSON.stringify({ pid: process.pid + 1, command: "peer", timestamp: 123, user: "peer" })
+    );
+    lock.release();
+
+    expect(existsSync(lockDir)).toBe(true);
+    expect(lock.readHolder()?.command).toBe("peer");
+  });
+
+  it("leaves no tombstone after reclaiming a stale lock", () => {
+    const root = tempDir();
+    const lockDir = join(root, "run.lock");
+    mkdirSync(lockDir, { recursive: true });
+    writeFileSync(
+      join(lockDir, "holder.json"),
+      JSON.stringify({ pid: 999_999, command: "qa ci", timestamp: Date.now(), user: "ghost" })
+    );
+
+    const lock = new RunLock({ lockDir, isProcessAlive: () => false });
+    lock.tryAcquire("qa ci");
+    lock.release();
+
+    expect(readdirSync(root).filter((name) => name.includes(".stale-"))).toEqual([]);
   });
 });

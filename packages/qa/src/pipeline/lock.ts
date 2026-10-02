@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { RunLockBusyError } from "../errors.js";
 
@@ -32,6 +33,7 @@ export class RunLock {
   private readonly isProcessAlive: (pid: number) => boolean;
   private readonly now: () => number;
   private held = false;
+  private acquiredAt: number | null = null;
 
   constructor(options: RunLockOptions) {
     this.lockDir = options.lockDir;
@@ -52,7 +54,7 @@ export class RunLock {
 
     const holder = this.readHolder();
     if (holder && this.isStale(holder)) {
-      this.evict();
+      this.reclaim();
       const retry = this.tryCreate(command);
       if (retry) {
         return retry;
@@ -93,8 +95,17 @@ export class RunLock {
     if (!this.held) {
       return;
     }
+    const holder = this.readHolder();
+    // Only remove a lock this process still owns. A peer may have reclaimed the
+    // lock after a stale timeout; deleting it then would tear down their run.
+    if (holder && (holder.pid !== process.pid || holder.timestamp !== this.acquiredAt)) {
+      this.held = false;
+      this.acquiredAt = null;
+      return;
+    }
     rmSync(this.lockDir, { recursive: true, force: true });
     this.held = false;
+    this.acquiredAt = null;
   }
 
   private tryCreate(command: string): LockHolder | null {
@@ -118,6 +129,7 @@ export class RunLock {
     };
     writeFileSync(this.holderFile, `${JSON.stringify(holder, null, 2)}\n`, "utf8");
     this.held = true;
+    this.acquiredAt = holder.timestamp;
     return holder;
   }
 
@@ -128,8 +140,19 @@ export class RunLock {
     return this.now() - holder.timestamp > this.staleMs;
   }
 
-  private evict(): void {
-    rmSync(this.lockDir, { recursive: true, force: true });
+  private reclaim(): void {
+    // Rename first: only one process can win the rename, so a peer that also saw
+    // the stale holder cannot delete a lock someone else just created.
+    const tombstone = `${this.lockDir}.stale-${process.pid}-${randomUUID()}`;
+    try {
+      renameSync(this.lockDir, tombstone);
+    } catch (error) {
+      if (isErrno(error, "ENOENT")) {
+        return;
+      }
+      throw error;
+    }
+    rmSync(tombstone, { recursive: true, force: true });
   }
 }
 

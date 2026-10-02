@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { constants } from "node:os";
 import type { PipelineReporter, PipelineResult, PipelineStep, StepResult } from "./types.js";
 
 export interface RunPipelineOptions {
@@ -32,17 +33,42 @@ export async function runPipeline(
   const total = steps.length;
 
   for (const [index, step] of steps.entries()) {
-    if (step.condition && !(await step.condition())) {
-      const skipped: StepResult = {
-        name: step.name,
-        status: "skipped",
-        exitCode: 0,
-        durationMs: 0,
-        signal: null,
-      };
-      results.push(skipped);
-      options.reporter?.onStepEnd?.(skipped, index, total);
-      continue;
+    if (step.condition) {
+      let shouldRun: boolean;
+      try {
+        shouldRun = await step.condition();
+      } catch (error) {
+        const failed: StepResult = {
+          name: step.name,
+          status: "failed",
+          exitCode: 1,
+          durationMs: 0,
+          signal: null,
+          stderr: error instanceof Error ? error.message : String(error),
+        };
+        results.push(failed);
+        options.reporter?.onStepEnd?.(failed, index, total);
+        ok = false;
+        if (exitCode === 0) {
+          exitCode = 1;
+        }
+        if (!step.continueOnError) {
+          return { ok, exitCode, steps: results };
+        }
+        continue;
+      }
+      if (!shouldRun) {
+        const skipped: StepResult = {
+          name: step.name,
+          status: "skipped",
+          exitCode: 0,
+          durationMs: 0,
+          signal: null,
+        };
+        results.push(skipped);
+        options.reporter?.onStepEnd?.(skipped, index, total);
+        continue;
+      }
     }
 
     options.reporter?.onStepStart?.(step, index, total);
@@ -78,7 +104,7 @@ function runStep(
   step: PipelineStep,
   context: { cwd: string | undefined; stdio: "inherit" | "pipe" }
 ): Promise<StepOutcome> {
-  return new Promise<StepOutcome>((resolve, reject) => {
+  return new Promise<StepOutcome>((resolve) => {
     const child = spawn(step.command, step.args ? [...step.args] : [], {
       cwd: step.cwd ?? context.cwd,
       env: { ...process.env, ...step.env },
@@ -97,13 +123,33 @@ function runStep(
       });
     }
 
-    child.on("error", reject);
+    child.on("error", (error) => {
+      if (context.stdio === "pipe") {
+        resolve({
+          exitCode: 127,
+          signal: null,
+          stdout,
+          stderr: `${stderr}${error.message}`,
+        });
+      } else {
+        process.stderr.write(`${error.message}\n`);
+        resolve({ exitCode: 127, signal: null });
+      }
+    });
     child.on("close", (code, signal) => {
       resolve({
-        exitCode: code ?? (signal ? 1 : 0),
+        exitCode: code ?? exitCodeForSignal(signal),
         signal: signal ?? null,
         ...(context.stdio === "pipe" ? { stdout, stderr } : {}),
       });
     });
   });
+}
+
+function exitCodeForSignal(signal: NodeJS.Signals | null): number {
+  if (!signal) {
+    return 0;
+  }
+  const number = constants.signals[signal];
+  return typeof number === "number" ? 128 + number : 1;
 }

@@ -138,4 +138,54 @@ describe("runPipeline", () => {
     expect(starts).toEqual(["alpha"]);
     expect(ends).toEqual(["alpha:passed"]);
   });
+
+  it("records a missing command as a failed step instead of crashing", async () => {
+    const result = await runPipeline(
+      [{ name: "missing", command: "definitely-not-a-real-binary-qa", args: [] }],
+      { stdio: "pipe" }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.exitCode).toBe(127);
+    expect(result.steps[0]?.status).toBe("failed");
+    expect(result.steps[0]?.stderr).toMatch(/ENOENT/);
+  });
+
+  it("records a throwing condition as a failed step", async () => {
+    const result = await runPipeline(
+      [
+        {
+          name: "cond",
+          command: process.execPath,
+          args: ["-e", "process.exit(0)"],
+          condition: () => {
+            throw new Error("condition blew up");
+          },
+        },
+      ],
+      { stdio: "pipe" }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(result.steps[0]?.status).toBe("failed");
+    expect(result.steps[0]?.stderr).toContain("condition blew up");
+  });
+
+  it("maps a signal-killed step to 128 + signal", async () => {
+    const result = await runPipeline(
+      [
+        {
+          name: "killed",
+          command: process.execPath,
+          args: ["-e", "process.kill(process.pid, 'SIGTERM')"],
+        },
+      ],
+      { stdio: "pipe" }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.exitCode).toBe(143);
+    expect(result.steps[0]?.signal).toBe("SIGTERM");
+  });
 });
