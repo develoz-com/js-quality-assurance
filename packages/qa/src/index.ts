@@ -13,6 +13,8 @@ export {
   buildTestStep,
   buildTypecheckStep,
   hasStagedTypeScript,
+  reportDir,
+  reportEnabled,
 } from "./commands.js";
 export type {
   AuditConfig,
@@ -25,6 +27,7 @@ export type {
   LinterKind,
   PipelineConfig,
   QaConfig,
+  ReportConfig,
   SmellsConfig,
   StackKind,
 } from "./config.js";
@@ -50,6 +53,20 @@ export type {
   StepResult,
   StepStatus,
 } from "./pipeline/types.js";
+export type { BuildReportResult } from "./reporters/report.js";
+export {
+  buildReport,
+  DEFAULT_REPORT_DIR,
+  REPORT_FILE,
+} from "./reporters/report.js";
+export type { SarifLog, SarifResult, SarifRule, SarifRun } from "./reporters/sarif.js";
+export {
+  countResults,
+  dependencyCruiserToSarif,
+  isSarifLog,
+  mergeSarif,
+  SARIF_SCHEMA,
+} from "./reporters/sarif.js";
 export type { PackageManagerKind, ProjectInfo } from "./stacks.js";
 export {
   detectPackageManager,

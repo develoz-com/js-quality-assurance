@@ -91,10 +91,31 @@ These are the review findings folded into the design, not left ambiguous:
    hook is 1–3s, not <500ms. No fabricated budget.
 3. **Unified SARIF needs a converter.** Knip and Biome emit SARIF; 
    `dependency-cruiser` emits JSON only and is converted to SARIF by an internal
-   reporter before merging.
+   reporter before merging. **Done:** see Reporting. Also verified that
+   dependency-cruiser with `--output-type json` exits 0 even on error
+   violations, so the JSON run is artifact-only and the gate stays on
+   `--output-type err`.
 4. **One Biome step.** `biome check` already includes formatting, so CI runs it
    once instead of `biome check` + `biome format`.
 5. **Start at 0.x.** All packages begin at `0.1.0`.
+
+## Reporting
+
+Report artifacts are written to `dist/qa` (configurable via
+`report.directory`) and enabled by default when `CI` or `GITHUB_ACTIONS` is set,
+or explicitly via `report.enabled`.
+
+| Artifact | Produced by | Flags |
+| --- | --- | --- |
+| `biome.sarif` | `qa lint` | `--reporter=default --reporter=sarif --reporter-file=…` |
+| `biome-smells.sarif` | `qa smells` | same |
+| `jscpd-report.sarif` | `qa duplication` | `--reporters console,sarif --output …` |
+| `dependency-cruiser.json` | `qa boundaries:report` | `--output-type json --output-to …` |
+| `junit.xml` | `qa coverage` | `--reporter=junit --outputFile.junit=…` |
+
+`qa report` merges the SARIF files and converts the dependency-cruiser JSON into
+`qa.sarif` for GitHub code scanning. Knip is not included: it writes SARIF to
+stdout only and the pipeline does not redirect.
 
 ## Milestones
 

@@ -42,6 +42,13 @@ export interface SmellsConfig {
   tool?: "biome" | "eslint";
 }
 
+export interface ReportConfig {
+  /** Defaults to true when CI or GITHUB_ACTIONS is set. */
+  enabled?: boolean;
+  /** Directory for SARIF/JUnit artifacts, relative to the project. */
+  directory?: string;
+}
+
 export interface PipelineConfig {
   preSteps?: readonly PipelineStep[];
   postSteps?: readonly PipelineStep[];
@@ -58,6 +65,7 @@ export interface QaConfig {
   deadcode?: DeadcodeConfig;
   duplication?: DuplicationConfig;
   smells?: SmellsConfig;
+  report?: ReportConfig;
   pipeline?: PipelineConfig;
 }
 

@@ -34,12 +34,14 @@ const defaultProject: ProjectInfo = {
 };
 
 function makeContext(overrides: Partial<BuildContext> = {}): BuildContext {
+  const { config, ...rest } = overrides;
   return {
     cwd: packageRoot,
-    config: {},
+    // Reporting is pinned off so unit tests do not depend on an ambient CI env.
+    config: { report: { enabled: false }, ...(config ?? {}) },
     project: defaultProject,
     coverage: resolveCoverage({ env: {}, config: {} }),
-    ...overrides,
+    ...rest,
   };
 }
 
@@ -132,6 +134,22 @@ describe("buildDuplicationStep", () => {
     expect(args).toContain("console");
   });
 
+  it("adds sarif and an output directory when reporting is enabled", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-dup-report-"));
+    try {
+      const ctx = makeContext({
+        cwd: dir,
+        project: { ...defaultProject, root: dir },
+        config: { report: { enabled: true } },
+      });
+      const args = buildDuplicationStep(ctx)[0]?.args ?? [];
+      expect(args).toContain("console,sarif");
+      expect(args).toContain("--output");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("honours a custom threshold and min tokens", () => {
     const args =
       buildDuplicationStep(
@@ -156,7 +174,13 @@ describe("buildSmellsStep", () => {
 
 describe("buildBoundariesStep", () => {
   it("skips when no rules file exists", () => {
-    expect(buildBoundariesStep(makeContext())).toEqual([]);
+    const dir = mkdtempSync(join(tmpdir(), "qa-nobounds-"));
+    try {
+      const ctx = makeContext({ cwd: dir, project: { ...defaultProject, root: dir } });
+      expect(buildBoundariesStep(ctx)).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("runs when a rules file is present", () => {
@@ -214,16 +238,22 @@ describe("buildAuditStep", () => {
 });
 
 describe("buildCiSteps", () => {
-  it("orders audit, typecheck, lint, deadcode, duplication, smells, coverage", () => {
-    expect(buildCiSteps(makeContext()).map((step) => step.name)).toEqual([
-      "audit",
-      "typecheck",
-      "lint",
-      "deadcode",
-      "duplication",
-      "smells",
-      "coverage",
-    ]);
+  it("orders the gates and omits boundaries without a rules file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-ci-order-"));
+    try {
+      const ctx = makeContext({ cwd: dir, project: { ...defaultProject, root: dir } });
+      expect(buildCiSteps(ctx).map((step) => step.name)).toEqual([
+        "audit",
+        "typecheck",
+        "lint",
+        "deadcode",
+        "duplication",
+        "smells",
+        "coverage",
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -246,6 +276,75 @@ describe("Biome config fallback", () => {
       const ctx = makeContext({ cwd: dir, project: { ...defaultProject, root: dir } });
       const args = buildLintSteps(ctx)[0]?.args ?? [];
       expect(args.some((arg) => arg.startsWith("--config-path="))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("report artifacts", () => {
+  it("adds biome sarif output when reporting is enabled", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-report-flags-"));
+    try {
+      const ctx = makeContext({
+        cwd: dir,
+        project: { ...defaultProject, root: dir },
+        config: { report: { enabled: true } },
+      });
+      const args = buildLintSteps(ctx)[0]?.args ?? [];
+      expect(args).toContain("--reporter=sarif");
+      expect(args.some((arg) => arg.startsWith("--reporter-file="))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("adds junit output to coverage when reporting is enabled", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-report-cov-"));
+    try {
+      const ctx = makeContext({
+        cwd: dir,
+        project: { ...defaultProject, root: dir },
+        config: { report: { enabled: true } },
+      });
+      const args = buildCoverageStep(ctx)[0]?.args ?? [];
+      expect(args).toContain("--reporter=junit");
+      expect(args.some((arg) => arg.startsWith("--outputFile.junit="))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("splits boundaries into an artifact step and a gate", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-report-bounds-"));
+    try {
+      writeFileSync(join(dir, ".dependency-cruiser.cjs"), "module.exports = {};");
+      const ctx = makeContext({
+        cwd: dir,
+        project: { ...defaultProject, root: dir },
+        config: {
+          boundaries: { rulesPath: ".dependency-cruiser.cjs" },
+          report: { enabled: true },
+        },
+      });
+      const steps = buildBoundariesStep(ctx);
+      expect(steps.map((step) => step.name)).toEqual(["boundaries:report", "boundaries"]);
+      expect(steps[0]?.args).toContain("json");
+      expect(steps[1]?.args).toContain("err");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("omits artifacts when reporting is disabled", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-report-off-"));
+    try {
+      const ctx = makeContext({
+        cwd: dir,
+        project: { ...defaultProject, root: dir },
+        config: { report: { enabled: false } },
+      });
+      expect(buildLintSteps(ctx)[0]?.args ?? []).not.toContain("--reporter=sarif");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

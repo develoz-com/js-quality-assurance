@@ -1,4 +1,4 @@
 {
   "ignore": ["test/fixtures/**", "qa.config.mjs"],
-  "ignoreDependencies": ["dependency-cruiser", "jscpd", "eslint", "prettier"]
+  "ignoreDependencies": ["jscpd", "eslint", "prettier"]
 }

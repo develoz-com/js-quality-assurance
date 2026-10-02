@@ -16,6 +16,7 @@ import {
   buildTestStep,
   buildTypecheckStep,
   hasStagedTypeScript,
+  reportDir,
 } from "./commands.js";
 import type { QaConfig } from "./config.js";
 import { resolveCoverage } from "./coverage.js";
@@ -24,6 +25,7 @@ import { HooksConflictError, installHooks, NotAGitRepositoryError } from "./gene
 import { RunLock } from "./pipeline/lock.js";
 import { runPipeline } from "./pipeline/runner.js";
 import type { PipelineReporter, PipelineStep } from "./pipeline/types.js";
+import { buildReport } from "./reporters/report.js";
 import { detectProject, type PackageManagerKind } from "./stacks.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -160,6 +162,7 @@ Commands:
   duplication  Detect copy/paste (jscpd)
   smells       Flag complex or suspicious code (project Biome lint rules)
   audit        Audit dependencies for known vulnerabilities
+  report       Merge gate artifacts (SARIF + dependency-cruiser) into qa.sarif
   hooks install  Install the tracked .githooks/pre-commit hook
   pre-commit   Run the staged pre-commit gates (used by the hook)
   --help       Show this help
@@ -212,6 +215,17 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
       return execute(cwd, "audit", buildAuditStep(ctx), options);
     case "hooks":
       return runHooks(cwd, rest[0], ctx.project.packageManager);
+    case "report": {
+      const directory = reportDir(ctx);
+      const result = buildReport(directory);
+      console.log(
+        `qa: wrote ${result.outputPath} (${result.resultCount} results from ${result.inputs.length} artifact(s))`
+      );
+      if (result.inputs.length === 0) {
+        console.log("qa: no artifacts found; run a gate with reporting enabled first.");
+      }
+      return 0;
+    }
     case "pre-commit":
       return execute(
         cwd,

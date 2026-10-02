@@ -45,6 +45,7 @@ Requires Node >= 22.12 and pnpm >= 9.
 | `qa smells` | Biome lint rules (project-configured) | source only, warnings fail |
 | `qa audit` | npm/pnpm/yarn/bun audit | severity gate, default high |
 | `qa ci` | all of the above | fail-fast, run-locked |
+| `qa report` | merges SARIF + dependency-cruiser JSON | writes `dist/qa/qa.sarif` |
 | `qa pre-commit` | staged gates for the hook | used by `qa hooks install` |
 
 Configure via `qa.config.mjs`; see `packages/qa/src/config.ts`.

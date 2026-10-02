@@ -1,8 +1,9 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { QaConfig } from "./config.js";
 import type { ResolvedCoverage } from "./coverage.js";
 import type { PipelineStep } from "./pipeline/types.js";
+import { DEFAULT_REPORT_DIR } from "./reporters/report.js";
 import { listStagedFiles, type PackageManagerKind, type ProjectInfo } from "./stacks.js";
 import { bundledFilePath, TOOLS, type ToolCommand, toolCommand } from "./tools.js";
 
@@ -37,6 +38,31 @@ function biomeConfigArgs(ctx: BuildContext): string[] {
     return [];
   }
   return [`--config-path=${bundledFilePath("config/biome.default.json")}`];
+}
+
+export function reportEnabled(ctx: BuildContext): boolean {
+  if (ctx.config.report?.enabled !== undefined) {
+    return ctx.config.report.enabled;
+  }
+  return Boolean(process.env.CI) || process.env.GITHUB_ACTIONS === "true";
+}
+
+/** Report directory, created on demand so tools can write artifacts into it. */
+export function reportDir(ctx: BuildContext): string {
+  const dir = join(ctx.cwd, ctx.config.report?.directory ?? DEFAULT_REPORT_DIR);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function biomeSarifArgs(ctx: BuildContext, name: string): string[] {
+  if (!reportEnabled(ctx)) {
+    return [];
+  }
+  return [
+    "--reporter=default",
+    "--reporter=sarif",
+    `--reporter-file=${join(reportDir(ctx), name)}`,
+  ];
 }
 
 export function buildTypecheckStep(ctx: BuildContext): PipelineStep[] {
@@ -78,7 +104,7 @@ export function buildLintSteps(
   if (!biome) {
     return [];
   }
-  const args = ["check", ...biomeConfigArgs(ctx)];
+  const args = ["check", ...biomeConfigArgs(ctx), ...biomeSarifArgs(ctx, "biome.sarif")];
   if (options.staged) {
     args.push("--staged");
   }
@@ -149,6 +175,13 @@ export function buildCoverageStep(ctx: BuildContext): PipelineStep[] {
       `--coverage.thresholds.perFile=${c.perFile}`,
       "--coverage.reporter=text",
       "--coverage.reporter=lcov",
+      ...(reportEnabled(ctx)
+        ? [
+            "--reporter=default",
+            "--reporter=junit",
+            `--outputFile.junit=${join(reportDir(ctx), "junit.xml")}`,
+          ]
+        : []),
     ]),
   ];
 }
@@ -193,7 +226,27 @@ export function buildBoundariesStep(ctx: BuildContext): PipelineStep[] {
   if (!depcruise) {
     return [];
   }
-  return [step("boundaries", depcruise, ["--config", rulesPath, "--output-type", "err", "."])];
+  const gate = step("boundaries", depcruise, ["--config", rulesPath, "--output-type", "err", "."]);
+  if (!reportEnabled(ctx)) {
+    return [gate];
+  }
+  // JSON output does not fail on violations (verified), so it is artifact-only
+  // and runs before the gating step.
+  const report: PipelineStep = {
+    name: "boundaries:report",
+    command: depcruise.command,
+    args: [
+      ...depcruise.argsPrefix,
+      "--config",
+      rulesPath,
+      "--output-type",
+      "json",
+      "--output-to",
+      join(reportDir(ctx), "dependency-cruiser.json"),
+      ".",
+    ],
+  };
+  return [report, gate];
 }
 
 export function buildDuplicationStep(ctx: BuildContext): PipelineStep[] {
@@ -202,7 +255,16 @@ export function buildDuplicationStep(ctx: BuildContext): PipelineStep[] {
     return [];
   }
   const config = ctx.config.duplication;
-  const args = ["--threshold", String(config?.threshold ?? 0), "--reporters", "console"];
+  const withReport = reportEnabled(ctx);
+  const args = [
+    "--threshold",
+    String(config?.threshold ?? 0),
+    "--reporters",
+    withReport ? "console,sarif" : "console",
+  ];
+  if (withReport) {
+    args.push("--output", reportDir(ctx));
+  }
   if (config?.minTokens !== undefined) {
     args.push("--min-tokens", String(config.minTokens));
   }
@@ -232,7 +294,15 @@ export function buildSmellsStep(ctx: BuildContext): PipelineStep[] {
   // and overrides rules the project set to "off". Projects scope this by adding
   // overrides to their own biome.json. See docs/plan.md.
   const target = existsSync(join(ctx.cwd, "src")) ? "src" : ".";
-  return [step("smells", biome, ["lint", ...biomeConfigArgs(ctx), "--error-on-warnings", target])];
+  return [
+    step("smells", biome, [
+      "lint",
+      ...biomeConfigArgs(ctx),
+      ...biomeSarifArgs(ctx, "biome-smells.sarif"),
+      "--error-on-warnings",
+      target,
+    ]),
+  ];
 }
 
 function auditArgs(pm: PackageManagerKind, level: string): string[] {
