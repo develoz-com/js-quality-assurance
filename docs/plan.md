@@ -117,7 +117,10 @@ These are the review findings folded into the design, not left ambiguous:
 ## Open assumptions
 
 - The `@develoz` npm scope is assumed available; npm publishing requires auth
-  that this checkout does not have. GitHub org `develoz-com` exists.
+  that this checkout does not have. GitHub org `develoz-com` exists. Until the
+  scope has npm **trusted publishing** configured, the release workflow is
+  `workflow_dispatch` only — an automatic publish was attempted on the first
+  push and failed with `404 Not found` from npm.
 - Tool versions are pinned from the npm registry as of Oct 2026 (Biome 2.5.15,
   ESLint 10.12, typescript-eslint 8.71, Vitest 5.0.3, TypeScript 5.9.3,
   knip 6.39, dependency-cruiser 18.5, jscpd 5.4). TypeScript is pinned to the
