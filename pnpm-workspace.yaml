@@ -1,0 +1,8 @@
+packages:
+  - "packages/*"
+
+minimumReleaseAgeExclude:
+  - "@types/node@24.19.1"
+
+allowBuilds:
+  esbuild: true

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "extends": ["./biome.base.json"],
+  "linter": {
+    "rules": {
+      "a11y": {
+        "recommended": true
+      },
+      "correctness": {
+        "useHookAtTopLevel": "error"
+      }
+    }
+  },
+  "javascript": {
+    "jsxRuntime": "transparent"
+  }
+}

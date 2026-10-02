@@ -1,0 +1,17 @@
+{
+  "name": "@develoz/biome-config",
+  "version": "0.1.0",
+  "description": "Opinionated shared Biome configuration for TypeScript, React, and Next.js.",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "biome.base.json",
+    "biome.react.json",
+    "biome.next.json"
+  ],
+  "exports": {
+    "./base": "./biome.base.json",
+    "./react": "./biome.react.json",
+    "./next": "./biome.next.json"
+  }
+}

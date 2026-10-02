@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.8.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Self-lint with Biome
+        run: pnpm exec biome check .
+
+      - name: Typecheck
+        run: pnpm --recursive run typecheck
+
+      - name: Unit & Integration Tests
+        run: pnpm --recursive run test

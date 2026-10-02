@@ -1,0 +1,28 @@
+{
+  "name": "@develoz/eslint-config",
+  "version": "0.1.0",
+  "description": "Opinionated shared ESLint flat configs for TypeScript, React, and Next.js. Opt-in alternative to Biome.",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    "./base": "./src/base.js",
+    "./react": "./src/react.js",
+    "./next": "./src/next.js"
+  },
+  "peerDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "eslint-plugin-react-hooks": {
+      "optional": true
+    },
+    "eslint-config-next": {
+      "optional": true
+    }
+  }
+}

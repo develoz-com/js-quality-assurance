@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.changeset/pre.json
+*.tsbuildinfo
+.DS_Store
+*.log
+tmp/

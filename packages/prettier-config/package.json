@@ -1,0 +1,14 @@
+{
+  "name": "@develoz/prettier-config",
+  "version": "0.1.0",
+  "description": "Opinionated shared Prettier configuration. Opt-in alternative to the Biome formatter.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js"
+  ]
+}

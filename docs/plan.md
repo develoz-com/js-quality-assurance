@@ -1,0 +1,124 @@
+# @develoz/qa — Implementation Plan
+
+Port of [`develoz-com/rails-quality-assurance`](https://github.com/develoz-com/rails-quality-assurance)
+to TypeScript. The gem's value is orchestration, not any single linter: shared
+presets, a fail-fast step pipeline, a cross-process run lock, coverage
+precedence, security gates, and a pre-commit generator. This repository keeps
+that design and swaps the Ruby tools for JS/TS ones.
+
+## Decisions
+
+| Decision | Choice | Rationale |
+| --- | --- | --- |
+| Location | Separate repo, published to npm | The gem is a distribution package. `race-control` consumes it as a devDependency, never bundled. |
+| Packaging | pnpm monorepo, Changesets | Mirrors the gem shipping shared configs other projects inherit. |
+| Linter / formatter | **Biome-first** | One fast tool for lint and format by default. ESLint and Prettier ship as opt-in presets where Next 16 / React Compiler rule parity matters. |
+| Versioning | `0.x` at launch | Package is pre-1.0. |
+
+## Non-goals
+
+- No QA dependency may enter `race-control/plugins/opencode/dist/race-control.js`.
+  That asset is served to arbitrary OpenCode clients and must stay dependency-light.
+- No custom compiler, bundler, or AST engine. Tools run as subprocesses.
+- No Jest legacy path. Vitest 5 is the test runner.
+- No Husky runtime. A tracked `.githooks/pre-commit` is generated instead.
+
+## Packages
+
+| Package | Role |
+| --- | --- |
+| `@develoz/qa` | CLI, pipeline engine, run lock, stack adapters, reporters, generators |
+| `@develoz/biome-config` | Default lint + format presets (`base`, `react`, `next`) |
+| `@develoz/eslint-config` | Opt-in flat configs (`base`, `react`, `next`) |
+| `@develoz/prettier-config` | Opt-in formatter preset |
+
+## CLI surface
+
+| Command | Runs |
+| --- | --- |
+| `qa ci` | Full fail-fast pipeline |
+| `qa lint [--staged] [--fix]` | Biome check by default, ESLint if configured |
+| `qa format [--staged] [--write]` | Biome format by default, Prettier if configured |
+| `qa typecheck` | `tsc --noEmit` |
+| `qa test` | `vitest run` (no coverage) |
+| `qa coverage` | `vitest run --coverage` with thresholds |
+| `qa audit` | `npm`/`pnpm`/`yarn audit --audit-level=<level>` |
+| `qa deadcode` | `knip` |
+| `qa boundaries` | `dependency-cruiser` |
+| `qa hooks install` | Writes tracked `.githooks/pre-commit` and sets `core.hooksPath` |
+
+## Pipeline
+
+`qa ci` acquires a run lock, then runs steps in order and stops at the first
+failure. The failing child's exit code becomes the process exit code.
+
+```
+audit → typecheck → biome check → boundaries → deadcode → vitest run --coverage
+```
+
+`biome check` covers lint **and** format in one step; there is no separate
+format step in CI. `qa format` exists only for a format-only developer check or
+Prettier projects.
+
+### Coverage precedence
+
+`ENV` > `qa.config.*` > opinionated default (100% lines, branches, functions,
+statements). Thresholds are injected as
+`--coverage.thresholds.lines=<n>` and friends and enforced by Vitest.
+
+### Run lock
+
+Atomic `mkdir` acquisition (no native addon), holder metadata
+(`pid`, `command`, `timestamp`, `user`) in
+`node_modules/.cache/@develoz/qa/run.lock/holder.json`. A lock whose PID is dead
+or whose age exceeds 30 minutes is reclaimed. Contention prints the holder and
+exits 1.
+
+## Configuration
+
+`qa.config.mjs` / `qa.config.js` (TypeScript config needs a TS loader and lands
+with the adapter milestone). See `packages/qa/src/config.ts` for the schema.
+
+## Corrections carried from review
+
+These are the review findings folded into the design, not left ambiguous:
+
+1. **Staged typecheck is unsound.** `tsc` ignores `tsconfig.json` when given
+   explicit files, and a subset check misses cross-file errors. The pre-commit
+   hook runs full `tsc --noEmit` when any `.ts`/`.tsx` is staged. Only lint and
+   format take a `--staged` file list.
+2. **Pre-commit budget is seconds, not milliseconds.** With `tsc --noEmit`, the
+   hook is 1–3s, not <500ms. No fabricated budget.
+3. **Unified SARIF needs a converter.** Knip and Biome emit SARIF; 
+   `dependency-cruiser` emits JSON only and is converted to SARIF by an internal
+   reporter before merging.
+4. **One Biome step.** `biome check` already includes formatting, so CI runs it
+   once instead of `biome check` + `biome format`.
+5. **Start at 0.x.** All packages begin at `0.1.0`.
+
+## Milestones
+
+- **M1 — Core engine & run lock. DONE.** Pipeline runner (subprocess, fail-fast,
+  exit-code propagation), run lock with stale reclamation, CLI `ci`,
+  `--help`/`--version`. 13 unit tests, plus an end-to-end check of sequential
+  run, fail-fast, and lock contention.
+- **M2 — Presets.** Validate `@develoz/biome-config` (base/react/next), the
+  opt-in `@develoz/eslint-config` flat configs against ESLint 10, and
+  `@develoz/prettier-config`.
+- **M3 — Adapters & gates.** Stack auto-detection (node/react/next),
+  `qa lint/format/typecheck/test/coverage/deadcode/boundaries/audit`,
+  single-pass coverage with threshold precedence, SARIF/JUnit reporters.
+- **M4 — Hooks.** `qa hooks install`, `.githooks/pre-commit`, `--staged`
+  resolver, Husky `core.hooksPath` conflict guard.
+- **M5 — Publishing & adoption.** Changesets + npm trusted publishing (OIDC),
+  `@develoz/qa` as a devDependency of `race-control/plugins/opencode`, a
+  `make qa` target, asset-drift assertion, and an OpenCode agent-pack QA skill.
+
+## Open assumptions
+
+- The `@develoz` npm scope is assumed available; npm publishing requires auth
+  that this checkout does not have. GitHub org `develoz-com` exists.
+- Tool versions are pinned from the npm registry as of Oct 2026 (Biome 2.5.15,
+  ESLint 10.12, typescript-eslint 8.71, Vitest 5.0.3, TypeScript 5.9.3,
+  knip 6.39, dependency-cruiser 18.5, jscpd 5.4). TypeScript is pinned to the
+  5.x line because the 7.x compiler is check-first and does not emit.
