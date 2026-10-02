@@ -30,6 +30,24 @@ pnpm exec biome check .
 
 Requires Node >= 22.12 and pnpm >= 9.
 
+## Checks
+
+| Command | Tool | Notes |
+| --- | --- | --- |
+| `qa lint` | Biome by default, ESLint if configured | `--staged`, `--fix` |
+| `qa format` | Biome by default, Prettier if configured | `--staged`, `--write` |
+| `qa typecheck` | `tsc --noEmit` | |
+| `qa test` | Vitest, no coverage | |
+| `qa coverage` | Vitest + v8 coverage | thresholds: env > config > 100% |
+| `qa deadcode` | knip | unused files, exports, dependencies |
+| `qa boundaries` | dependency-cruiser | skipped without a rules file |
+| `qa duplication` | jscpd | fails on any duplication by default |
+| `qa smells` | Biome complexity rules | source only |
+| `qa audit` | npm/pnpm/yarn/bun audit | severity gate, default high |
+| `qa ci` | all of the above | fail-fast, run-locked |
+
+Configure via `qa.config.mjs`; see `packages/qa/src/config.ts`.
+
 ## License
 
 MIT

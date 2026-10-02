@@ -30,6 +30,18 @@ export interface DeadcodeConfig {
   ignore?: readonly string[];
 }
 
+export interface DuplicationConfig {
+  /** Maximum duplication percentage before failing. Default 0 (fail on any). */
+  threshold?: number;
+  minTokens?: number;
+  ignore?: readonly string[];
+}
+
+export interface SmellsConfig {
+  /** `biome` uses complexity/suspicious rules; `eslint` expects sonarjs-style plugins. */
+  tool?: "biome" | "eslint";
+}
+
 export interface PipelineConfig {
   preSteps?: readonly PipelineStep[];
   postSteps?: readonly PipelineStep[];
@@ -44,6 +56,8 @@ export interface QaConfig {
   audit?: AuditConfig;
   boundaries?: BoundariesConfig;
   deadcode?: DeadcodeConfig;
+  duplication?: DuplicationConfig;
+  smells?: SmellsConfig;
   pipeline?: PipelineConfig;
 }
 

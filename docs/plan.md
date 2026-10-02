@@ -108,9 +108,13 @@ These are the review findings folded into the design, not left ambiguous:
 - **M2 — Presets.** Validate `@develoz/biome-config` (base/react/next), the
   opt-in `@develoz/eslint-config` flat configs against ESLint 10, and
   `@develoz/prettier-config`.
-- **M3 — Adapters & gates.** Stack auto-detection (node/react/next),
-  `qa lint/format/typecheck/test/coverage/deadcode/boundaries/audit`,
-  single-pass coverage with threshold precedence, SARIF/JUnit reporters.
+- **M3 — Adapters & gates. DONE.** Stack detection (node/react/next) and
+  workspace-root discovery; `qa lint|format|typecheck|test|coverage|deadcode|
+  boundaries|duplication|smells|audit`. Single-pass coverage with
+  `ENV > config > 100%` precedence. `smells` runs Biome complexity rules over
+  source only. The QA tools ship as dependencies and resolve from the package's
+  own install, so a consumer's `node_modules` layout does not matter. Verified
+  end-to-end: `qa ci` runs all seven gates and passes on this repository.
 - **M4 — Hooks.** `qa hooks install`, `.githooks/pre-commit`, `--staged`
   resolver, Husky `core.hooksPath` conflict guard.
 - **M5 — Publishing & adoption.** Changesets + npm trusted publishing (OIDC),

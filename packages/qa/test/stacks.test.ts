@@ -1,0 +1,99 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  detectPackageManager,
+  detectProject,
+  detectStack,
+  listStagedFiles,
+} from "../src/stacks.js";
+
+const dirs: string[] = [];
+
+function fixture(pkg?: Record<string, unknown>, extraFiles: string[] = []): string {
+  const dir = mkdtempSync(join(tmpdir(), "qa-stack-"));
+  dirs.push(dir);
+  if (pkg) {
+    writeFileSync(join(dir, "package.json"), JSON.stringify(pkg));
+  }
+  for (const name of extraFiles) {
+    const path = join(dir, name);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, "");
+  }
+  return dir;
+}
+
+afterEach(() => {
+  for (const dir of dirs.splice(0)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+describe("detectStack", () => {
+  it("defaults to node without a package.json", () => {
+    expect(detectStack(fixture())).toBe("node");
+  });
+
+  it("detects next from a dependency", () => {
+    expect(detectStack(fixture({ dependencies: { next: "16.0.0", react: "19.0.0" } }))).toBe(
+      "next"
+    );
+  });
+
+  it("detects next from next.config", () => {
+    expect(detectStack(fixture({ dependencies: { react: "19.0.0" } }, ["next.config.mjs"]))).toBe(
+      "next"
+    );
+  });
+
+  it("detects react without next", () => {
+    expect(detectStack(fixture({ dependencies: { react: "19.0.0" } }))).toBe("react");
+  });
+
+  it("detects node for a plain typescript project", () => {
+    expect(detectStack(fixture({ devDependencies: { typescript: "5.9.0" } }))).toBe("node");
+  });
+});
+
+describe("detectPackageManager", () => {
+  it("reads the lockfile", () => {
+    expect(detectPackageManager(fixture({}, ["pnpm-lock.yaml"]))).toBe("pnpm");
+    expect(detectPackageManager(fixture({}, ["yarn.lock"]))).toBe("yarn");
+    expect(detectPackageManager(fixture({}, ["bun.lockb"]))).toBe("bun");
+    expect(detectPackageManager(fixture({}, ["package-lock.json"]))).toBe("npm");
+  });
+
+  it("defaults to npm without a lockfile", () => {
+    expect(detectPackageManager(fixture({}))).toBe("npm");
+  });
+});
+
+describe("detectProject", () => {
+  it("reports typescript and package.json presence", () => {
+    const project = detectProject(fixture({ name: "x" }, ["tsconfig.json"]));
+    expect(project.hasPackageJson).toBe(true);
+    expect(project.hasTypeScript).toBe(true);
+    expect(project.stack).toBe("node");
+  });
+
+  it("finds the workspace root lockfile from a package directory", () => {
+    const root = fixture({ name: "root" }, ["pnpm-lock.yaml"]);
+    const packageDir = join(root, "packages", "app");
+    mkdirSync(packageDir, { recursive: true });
+    writeFileSync(join(packageDir, "package.json"), JSON.stringify({ name: "app" }));
+
+    const project = detectProject(packageDir);
+
+    expect(project.root).toBe(root);
+    expect(project.packageManager).toBe("pnpm");
+    expect(project.hasPackageJson).toBe(true);
+  });
+});
+
+describe("listStagedFiles", () => {
+  it("returns an empty list outside a git repository", () => {
+    expect(listStagedFiles(fixture({}), ["ts"])).toEqual([]);
+  });
+});

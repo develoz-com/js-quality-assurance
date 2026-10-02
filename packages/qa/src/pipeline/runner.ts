@@ -17,87 +17,115 @@ interface StepOutcome {
   stderr?: string;
 }
 
+type Gate = { kind: "run" } | { kind: "skip" } | { kind: "failure"; message: string };
+
 /**
  * Runs steps in order and stops at the first failure unless the step sets
- * `continueOnError`. The failing child's exit code becomes the pipeline exit code.
+ * `continueOnError`. The first failure's child exit code becomes the pipeline
+ * exit code.
  */
 export async function runPipeline(
   steps: readonly PipelineStep[],
   options: RunPipelineOptions = {}
 ): Promise<PipelineResult> {
-  const stdio = options.stdio ?? "inherit";
-  const now = options.now ?? (() => performance.now());
+  const context: StepContext = {
+    cwd: options.cwd,
+    stdio: options.stdio ?? "inherit",
+    now: options.now ?? (() => performance.now()),
+    reporter: options.reporter,
+    total: steps.length,
+  };
   const results: StepResult[] = [];
-  let ok = true;
   let exitCode = 0;
-  const total = steps.length;
 
   for (const [index, step] of steps.entries()) {
-    if (step.condition) {
-      let shouldRun: boolean;
-      try {
-        shouldRun = await step.condition();
-      } catch (error) {
-        const failed: StepResult = {
-          name: step.name,
-          status: "failed",
-          exitCode: 1,
-          durationMs: 0,
-          signal: null,
-          stderr: error instanceof Error ? error.message : String(error),
-        };
-        results.push(failed);
-        options.reporter?.onStepEnd?.(failed, index, total);
-        ok = false;
-        if (exitCode === 0) {
-          exitCode = 1;
-        }
-        if (!step.continueOnError) {
-          return { ok, exitCode, steps: results };
-        }
-        continue;
-      }
-      if (!shouldRun) {
-        const skipped: StepResult = {
-          name: step.name,
-          status: "skipped",
-          exitCode: 0,
-          durationMs: 0,
-          signal: null,
-        };
-        results.push(skipped);
-        options.reporter?.onStepEnd?.(skipped, index, total);
-        continue;
-      }
-    }
-
-    options.reporter?.onStepStart?.(step, index, total);
-    const startedAt = now();
-    const outcome = await runStep(step, { cwd: options.cwd, stdio });
-    const result: StepResult = {
-      name: step.name,
-      status: outcome.exitCode === 0 ? "passed" : "failed",
-      exitCode: outcome.exitCode,
-      durationMs: now() - startedAt,
-      signal: outcome.signal,
-      ...(outcome.stdout !== undefined ? { stdout: outcome.stdout } : {}),
-      ...(outcome.stderr !== undefined ? { stderr: outcome.stderr } : {}),
-    };
+    const { result, stop } = await executeStep(step, index, context);
     results.push(result);
-    options.reporter?.onStepEnd?.(result, index, total);
-
     if (result.status === "failed") {
-      ok = false;
-      if (exitCode === 0) {
-        exitCode = result.exitCode === 0 ? 1 : result.exitCode;
-      }
-      if (!step.continueOnError) {
-        return { ok, exitCode, steps: results };
+      exitCode = exitCode === 0 ? normalizeExitCode(result.exitCode) : exitCode;
+      if (stop) {
+        break;
       }
     }
   }
 
-  return { ok, exitCode, steps: results };
+  return { ok: exitCode === 0, exitCode, steps: results };
+}
+
+interface StepContext {
+  cwd: string | undefined;
+  stdio: "inherit" | "pipe";
+  now: () => number;
+  reporter: PipelineReporter | undefined;
+  total: number;
+}
+
+interface StepExecution {
+  result: StepResult;
+  /** Whether the pipeline should stop after this step (fail-fast). */
+  stop: boolean;
+}
+
+async function executeStep(
+  step: PipelineStep,
+  index: number,
+  context: StepContext
+): Promise<StepExecution> {
+  const gate = await evaluateGate(step);
+
+  if (gate.kind === "failure") {
+    const result = failedResult(step.name, gate.message);
+    context.reporter?.onStepEnd?.(result, index, context.total);
+    return { result, stop: !step.continueOnError };
+  }
+
+  if (gate.kind === "skip") {
+    const result = skippedResult(step.name);
+    context.reporter?.onStepEnd?.(result, index, context.total);
+    return { result, stop: false };
+  }
+
+  context.reporter?.onStepStart?.(step, index, context.total);
+  const startedAt = context.now();
+  const outcome = await runStep(step, { cwd: context.cwd, stdio: context.stdio });
+  const result = outcomeToResult(step.name, outcome, context.now() - startedAt);
+  context.reporter?.onStepEnd?.(result, index, context.total);
+  return { result, stop: result.status === "failed" && !step.continueOnError };
+}
+
+async function evaluateGate(step: PipelineStep): Promise<Gate> {
+  if (!step.condition) {
+    return { kind: "run" };
+  }
+  try {
+    return (await step.condition()) ? { kind: "run" } : { kind: "skip" };
+  } catch (error) {
+    return { kind: "failure", message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function skippedResult(name: string): StepResult {
+  return { name, status: "skipped", exitCode: 0, durationMs: 0, signal: null };
+}
+
+function failedResult(name: string, message: string): StepResult {
+  return { name, status: "failed", exitCode: 1, durationMs: 0, signal: null, stderr: message };
+}
+
+function outcomeToResult(name: string, outcome: StepOutcome, durationMs: number): StepResult {
+  return {
+    name,
+    status: outcome.exitCode === 0 ? "passed" : "failed",
+    exitCode: outcome.exitCode,
+    durationMs,
+    signal: outcome.signal,
+    ...(outcome.stdout !== undefined ? { stdout: outcome.stdout } : {}),
+    ...(outcome.stderr !== undefined ? { stderr: outcome.stderr } : {}),
+  };
+}
+
+function normalizeExitCode(exitCode: number): number {
+  return exitCode === 0 ? 1 : exitCode;
 }
 
 function runStep(
@@ -125,17 +153,13 @@ function runStep(
 
     child.on("error", (error) => {
       if (context.stdio === "pipe") {
-        resolve({
-          exitCode: 127,
-          signal: null,
-          stdout,
-          stderr: `${stderr}${error.message}`,
-        });
+        resolve({ exitCode: 127, signal: null, stdout, stderr: `${stderr}${error.message}` });
       } else {
         process.stderr.write(`${error.message}\n`);
         resolve({ exitCode: 127, signal: null });
       }
     });
+
     child.on("close", (code, signal) => {
       resolve({
         exitCode: code ?? exitCodeForSignal(signal),
