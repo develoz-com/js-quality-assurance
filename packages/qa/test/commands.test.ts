@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -259,10 +260,26 @@ describe("buildPreCommitSteps", () => {
   });
 
   it("adds staged format when the formatter is prettier", () => {
-    const steps = buildPreCommitSteps(makeContext({ config: { formatter: "prettier" } }), {
-      stagedTypeScript: false,
-    });
-    expect(steps.map((step) => step.name)).toEqual(["lint", "format"]);
+    const repo = mkdtempSync(join(tmpdir(), "qa-precommit-"));
+    try {
+      execFileSync("git", ["init", "-q"], { cwd: repo });
+      writeFileSync(join(repo, "a.ts"), "export const x = 1;\n");
+      execFileSync("git", ["add", "a.ts"], { cwd: repo });
+
+      const steps = buildPreCommitSteps(
+        makeContext({
+          cwd: repo,
+          project: { ...defaultProject, root: repo },
+          config: { formatter: "prettier" },
+        }),
+        { stagedTypeScript: false }
+      );
+
+      expect(steps.map((step) => step.name)).toEqual(["lint", "format"]);
+      expect(steps[1]?.args).toContain("a.ts");
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 
   it("adds a full typecheck only when TypeScript is staged", () => {
