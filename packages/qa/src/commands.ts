@@ -200,10 +200,12 @@ export function buildSmellsStep(ctx: BuildContext): PipelineStep[] {
   if (!biome) {
     return [];
   }
-  // Complexity only: the "suspicious" group includes noConsole, which a CLI
-  // legitimately uses. Targets source, never test files.
+  // Lint-only, warnings as errors, source only. Rules come from the project's
+  // Biome config. `--only` is deliberately NOT used: it forces a rule group on
+  // and overrides rules the project set to "off". Projects scope this by adding
+  // overrides to their own biome.json. See docs/plan.md.
   const target = existsSync(join(ctx.cwd, "src")) ? "src" : ".";
-  return [step("smells", biome, ["lint", "--only=complexity", "--error-on-warnings", target])];
+  return [step("smells", biome, ["lint", "--error-on-warnings", target])];
 }
 
 function auditArgs(pm: PackageManagerKind, level: string): string[] {

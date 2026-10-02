@@ -111,10 +111,14 @@ These are the review findings folded into the design, not left ambiguous:
 - **M3 — Adapters & gates. DONE.** Stack detection (node/react/next) and
   workspace-root discovery; `qa lint|format|typecheck|test|coverage|deadcode|
   boundaries|duplication|smells|audit`. Single-pass coverage with
-  `ENV > config > 100%` precedence. `smells` runs Biome complexity rules over
-  source only. The QA tools ship as dependencies and resolve from the package's
-  own install, so a consumer's `node_modules` layout does not matter. Verified
-  end-to-end: `qa ci` runs all seven gates and passes on this repository.
+  `ENV > config > 100%` precedence. `smells` runs the project's Biome lint
+  rules (suspicious **and** complexity) over source with warnings as errors.
+  `--only` is deliberately avoided: it forces a rule group on and overrides
+  rules a project set to `off`. Projects scope the gate through their own
+  `biome.json` overrides (this repo turns `noConsole` off for the CLI). The QA
+  tools ship as dependencies and resolve from the package's own install, so a
+  consumer's `node_modules` layout does not matter. Verified end-to-end: `qa ci`
+  runs all seven gates and passes on this repository.
 - **M4 — Hooks.** `qa hooks install`, `.githooks/pre-commit`, `--staged`
   resolver, Husky `core.hooksPath` conflict guard.
 - **M5 — Publishing & adoption.** Changesets + npm trusted publishing (OIDC),

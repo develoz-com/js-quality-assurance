@@ -141,12 +141,13 @@ describe("buildDuplicationStep", () => {
 });
 
 describe("buildSmellsStep", () => {
-  it("runs biome complexity rules over source only", () => {
+  it("runs project-configured biome lint over source, warnings as errors", () => {
     const args = buildSmellsStep(makeContext())[0]?.args ?? [];
-    expect(args).toContain("--only=complexity");
+    expect(args).toContain("lint");
     expect(args).toContain("--error-on-warnings");
     expect(args).toContain("src");
-    expect(args).not.toContain("--only=suspicious");
+    // --only would override rules the project turned off.
+    expect(args.some((arg) => arg.startsWith("--only"))).toBe(false);
   });
 });
 

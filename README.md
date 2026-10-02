@@ -42,7 +42,7 @@ Requires Node >= 22.12 and pnpm >= 9.
 | `qa deadcode` | knip | unused files, exports, dependencies |
 | `qa boundaries` | dependency-cruiser | skipped without a rules file |
 | `qa duplication` | jscpd | fails on any duplication by default |
-| `qa smells` | Biome complexity rules | source only |
+| `qa smells` | Biome lint rules (project-configured) | source only, warnings fail |
 | `qa audit` | npm/pnpm/yarn/bun audit | severity gate, default high |
 | `qa ci` | all of the above | fail-fast, run-locked |
 

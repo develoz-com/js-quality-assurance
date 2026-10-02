@@ -38,5 +38,17 @@
       "quoteStyle": "double",
       "trailingCommas": "es5"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/cli.ts", "**/bin/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ]
 }
