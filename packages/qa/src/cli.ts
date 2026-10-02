@@ -11,17 +11,20 @@ import {
   buildDuplicationStep,
   buildFormatSteps,
   buildLintSteps,
+  buildPreCommitSteps,
   buildSmellsStep,
   buildTestStep,
   buildTypecheckStep,
+  hasStagedTypeScript,
 } from "./commands.js";
 import type { QaConfig } from "./config.js";
 import { resolveCoverage } from "./coverage.js";
 import { RunLockBusyError } from "./errors.js";
+import { HooksConflictError, installHooks, NotAGitRepositoryError } from "./generators/hooks.js";
 import { RunLock } from "./pipeline/lock.js";
 import { runPipeline } from "./pipeline/runner.js";
 import type { PipelineReporter, PipelineStep } from "./pipeline/types.js";
-import { detectProject } from "./stacks.js";
+import { detectProject, type PackageManagerKind } from "./stacks.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(join(here, "..", "package.json"), "utf8")) as {
@@ -116,6 +119,30 @@ function ciSteps(ctx: BuildContext): PipelineStep[] {
   ];
 }
 
+function runHooks(
+  cwd: string,
+  action: string | undefined,
+  packageManager: PackageManagerKind
+): number {
+  if (action !== "install") {
+    console.error("qa: usage: qa hooks install");
+    return 1;
+  }
+  try {
+    const result = installHooks(cwd, packageManager);
+    console.log(
+      `qa: ${result.hooksPath} hook ${result.changed ? "written" : "already up to date"} (${result.hookPath})`
+    );
+    return 0;
+  } catch (error) {
+    if (error instanceof HooksConflictError || error instanceof NotAGitRepositoryError) {
+      console.error(error.message);
+      return 1;
+    }
+    throw error;
+  }
+}
+
 function printHelp(): void {
   console.log(`@develoz/qa ${packageJson.version}
 
@@ -131,8 +158,10 @@ Commands:
   deadcode     Find unused files, exports and dependencies (knip)
   boundaries   Enforce architecture rules (dependency-cruiser)
   duplication  Detect copy/paste (jscpd)
-  smells       Flag complex code (Biome complexity/suspicious rules)
+  smells       Flag complex or suspicious code (project Biome lint rules)
   audit        Audit dependencies for known vulnerabilities
+  hooks install  Install the tracked .githooks/pre-commit hook
+  pre-commit   Run the staged pre-commit gates (used by the hook)
   --help       Show this help
   --version    Print the version
 `);
@@ -181,6 +210,15 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
       return execute(cwd, "smells", buildSmellsStep(ctx), options);
     case "audit":
       return execute(cwd, "audit", buildAuditStep(ctx), options);
+    case "hooks":
+      return runHooks(cwd, rest[0], ctx.project.packageManager);
+    case "pre-commit":
+      return execute(
+        cwd,
+        "pre-commit",
+        buildPreCommitSteps(ctx, { stagedTypeScript: hasStagedTypeScript(cwd) }),
+        options
+      );
     default:
       console.error(`qa: unknown command '${command}'. Run 'qa --help'.`);
       return 1;

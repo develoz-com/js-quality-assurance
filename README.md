@@ -45,8 +45,19 @@ Requires Node >= 22.12 and pnpm >= 9.
 | `qa smells` | Biome lint rules (project-configured) | source only, warnings fail |
 | `qa audit` | npm/pnpm/yarn/bun audit | severity gate, default high |
 | `qa ci` | all of the above | fail-fast, run-locked |
+| `qa pre-commit` | staged gates for the hook | used by `qa hooks install` |
 
 Configure via `qa.config.mjs`; see `packages/qa/src/config.ts`.
+
+When the project has no `biome.json` of its own, the lint, format and smells
+gates apply the preset shipped in `@develoz/qa/config/biome.default.json`. Add
+your own `biome.json` (or extend `@develoz/biome-config`) to take over.
+
+Install the pre-commit hook:
+
+```sh
+qa hooks install
+```
 
 ## License
 

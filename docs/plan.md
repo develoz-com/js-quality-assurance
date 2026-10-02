@@ -119,8 +119,12 @@ These are the review findings folded into the design, not left ambiguous:
   tools ship as dependencies and resolve from the package's own install, so a
   consumer's `node_modules` layout does not matter. Verified end-to-end: `qa ci`
   runs all seven gates and passes on this repository.
-- **M4 — Hooks.** `qa hooks install`, `.githooks/pre-commit`, `--staged`
-  resolver, Husky `core.hooksPath` conflict guard.
+- **M4 — Hooks. DONE.** `qa hooks install` writes a tracked, executable
+  `.githooks/pre-commit` and sets `core.hooksPath`, with a conflict guard when
+  another hook manager (Husky) already owns it. The hook delegates to
+  `qa pre-commit`: staged lint, staged format only for non-Biome formatters, and
+  a **full** `tsc --noEmit` when TypeScript is staged (never a file list).
+  Verified end-to-end in a real repository.
 - **M5 — Publishing & adoption.** Changesets + npm trusted publishing (OIDC),
   `@develoz/qa` as a devDependency of `race-control/plugins/opencode`, a
   `make qa` target, asset-drift assertion, and an OpenCode agent-pack QA skill.

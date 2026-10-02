@@ -13,9 +13,11 @@ import {
   buildDuplicationStep,
   buildFormatSteps,
   buildLintSteps,
+  buildPreCommitSteps,
   buildSmellsStep,
   buildTestStep,
   buildTypecheckStep,
+  hasStagedTypeScript,
 } from "../src/commands.js";
 import { resolveCoverage } from "../src/coverage.js";
 import type { ProjectInfo } from "../src/stacks.js";
@@ -221,5 +223,62 @@ describe("buildCiSteps", () => {
       "smells",
       "coverage",
     ]);
+  });
+});
+
+describe("Biome config fallback", () => {
+  it("applies the bundled Biome preset when the project has no config", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-biome-fallback-"));
+    try {
+      const ctx = makeContext({ cwd: dir, project: { ...defaultProject, root: dir } });
+      const args = buildLintSteps(ctx)[0]?.args ?? [];
+      expect(args.some((arg) => arg.startsWith("--config-path="))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses the project's own Biome config when present", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-biome-own-"));
+    try {
+      writeFileSync(join(dir, "biome.json"), "{}");
+      const ctx = makeContext({ cwd: dir, project: { ...defaultProject, root: dir } });
+      const args = buildLintSteps(ctx)[0]?.args ?? [];
+      expect(args.some((arg) => arg.startsWith("--config-path="))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("buildPreCommitSteps", () => {
+  it("runs only staged lint for the default biome formatter", () => {
+    const steps = buildPreCommitSteps(makeContext(), { stagedTypeScript: false });
+    expect(steps.map((step) => step.name)).toEqual(["lint"]);
+    expect(steps[0]?.args).toContain("--staged");
+  });
+
+  it("adds staged format when the formatter is prettier", () => {
+    const steps = buildPreCommitSteps(makeContext({ config: { formatter: "prettier" } }), {
+      stagedTypeScript: false,
+    });
+    expect(steps.map((step) => step.name)).toEqual(["lint", "format"]);
+  });
+
+  it("adds a full typecheck only when TypeScript is staged", () => {
+    const steps = buildPreCommitSteps(makeContext(), { stagedTypeScript: true });
+    expect(steps.map((step) => step.name)).toEqual(["lint", "typecheck"]);
+    expect(steps[1]?.args).toContain("--noEmit");
+  });
+});
+
+describe("hasStagedTypeScript", () => {
+  it("is false outside a git repository", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-staged-"));
+    try {
+      expect(hasStagedTypeScript(dir)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

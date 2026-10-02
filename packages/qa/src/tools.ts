@@ -109,3 +109,8 @@ export const TOOLS = {
   jscpd: { pkg: "jscpd", bin: "jscpd" },
   depcruise: { pkg: "dependency-cruiser", bin: "depcruise" },
 } as const satisfies Record<string, ToolSpec>;
+
+/** Absolute path to a file shipped inside this package, resolved from its install root. */
+export function bundledFilePath(relative: string): string {
+  return join(selfDir, "..", relative);
+}

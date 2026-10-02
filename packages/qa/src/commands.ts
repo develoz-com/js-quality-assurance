@@ -4,9 +4,10 @@ import type { QaConfig } from "./config.js";
 import type { ResolvedCoverage } from "./coverage.js";
 import type { PipelineStep } from "./pipeline/types.js";
 import { listStagedFiles, type PackageManagerKind, type ProjectInfo } from "./stacks.js";
-import { TOOLS, type ToolCommand, toolCommand } from "./tools.js";
+import { bundledFilePath, TOOLS, type ToolCommand, toolCommand } from "./tools.js";
 
 const SOURCE_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mjs", "cjs"] as const;
+const BIOME_CONFIG_FILES = ["biome.json", "biome.jsonc", ".biome.json"] as const;
 
 export interface BuildContext {
   cwd: string;
@@ -17,6 +18,25 @@ export interface BuildContext {
 
 function step(name: string, tool: ToolCommand, args: string[]): PipelineStep {
   return { name, command: tool.command, args: [...tool.argsPrefix, ...args] };
+}
+
+function hasProjectBiomeConfig(ctx: BuildContext): boolean {
+  return [ctx.cwd, ctx.project.root].some((dir) =>
+    BIOME_CONFIG_FILES.some((name) => existsSync(join(dir, name)))
+  );
+}
+
+/**
+ * When the project has no Biome config of its own, point Biome at the preset
+ * shipped with this package. Biome resolves `vcs`/`files` relative to the config
+ * file, so the shipped preset deliberately contains only formatter and linter
+ * rules.
+ */
+function biomeConfigArgs(ctx: BuildContext): string[] {
+  if (hasProjectBiomeConfig(ctx)) {
+    return [];
+  }
+  return [`--config-path=${bundledFilePath("config/biome.default.json")}`];
 }
 
 export function buildTypecheckStep(ctx: BuildContext): PipelineStep[] {
@@ -58,7 +78,7 @@ export function buildLintSteps(
   if (!biome) {
     return [];
   }
-  const args = ["check"];
+  const args = ["check", ...biomeConfigArgs(ctx)];
   if (options.staged) {
     args.push("--staged");
   }
@@ -79,6 +99,13 @@ export function buildFormatSteps(
     if (!prettier) {
       return [];
     }
+    if (options.staged) {
+      const files = listStagedFiles(ctx.cwd, SOURCE_EXTENSIONS);
+      if (files.length === 0) {
+        return [];
+      }
+      return [step("format", prettier, [...(options.write ? ["--write"] : ["--check"]), ...files])];
+    }
     return [step("format", prettier, options.write ? ["--write", "."] : ["--check", "."])];
   }
 
@@ -86,7 +113,7 @@ export function buildFormatSteps(
   if (!biome) {
     return [];
   }
-  const args = ["format"];
+  const args = ["format", ...biomeConfigArgs(ctx)];
   if (options.staged) {
     args.push("--staged");
   }
@@ -205,7 +232,7 @@ export function buildSmellsStep(ctx: BuildContext): PipelineStep[] {
   // and overrides rules the project set to "off". Projects scope this by adding
   // overrides to their own biome.json. See docs/plan.md.
   const target = existsSync(join(ctx.cwd, "src")) ? "src" : ".";
-  return [step("smells", biome, ["lint", "--error-on-warnings", target])];
+  return [step("smells", biome, ["lint", ...biomeConfigArgs(ctx), "--error-on-warnings", target])];
 }
 
 function auditArgs(pm: PackageManagerKind, level: string): string[] {
@@ -241,4 +268,29 @@ export function buildCiSteps(ctx: BuildContext): PipelineStep[] {
     ...buildSmellsStep(ctx),
     ...buildCoverageStep(ctx),
   ];
+}
+
+/** True when at least one TypeScript file is staged. Drives the pre-commit typecheck. */
+export function hasStagedTypeScript(cwd: string): boolean {
+  return listStagedFiles(cwd, ["ts", "tsx"]).length > 0;
+}
+
+/**
+ * Pre-commit gates: staged lint, staged format only when the formatter is not
+ * Biome (`biome check` already formats), and a full typecheck when TypeScript
+ * is staged. The typecheck never takes a file list.
+ */
+export function buildPreCommitSteps(
+  ctx: BuildContext,
+  options: { stagedTypeScript: boolean }
+): PipelineStep[] {
+  const steps = [...buildLintSteps(ctx, { staged: true })];
+
+  if ((ctx.config.formatter ?? "biome") !== "biome") {
+    steps.push(...buildFormatSteps(ctx, { staged: true }));
+  }
+  if (options.stagedTypeScript) {
+    steps.push(...buildTypecheckStep(ctx));
+  }
+  return steps;
 }

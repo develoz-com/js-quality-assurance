@@ -8,9 +8,11 @@ export {
   buildDuplicationStep,
   buildFormatSteps,
   buildLintSteps,
+  buildPreCommitSteps,
   buildSmellsStep,
   buildTestStep,
   buildTypecheckStep,
+  hasStagedTypeScript,
 } from "./commands.js";
 export type {
   AuditConfig,
@@ -30,6 +32,13 @@ export { DEFAULT_COVERAGE_THRESHOLDS, defineConfig } from "./config.js";
 export type { CoverageSources, ResolvedCoverage } from "./coverage.js";
 export { resolveCoverage } from "./coverage.js";
 export { RunLockBusyError } from "./errors.js";
+export type { HooksInstallResult } from "./generators/hooks.js";
+export {
+  HooksConflictError,
+  installHooks,
+  NotAGitRepositoryError,
+  renderPreCommitScript,
+} from "./generators/hooks.js";
 export type { LockHolder, RunLockOptions } from "./pipeline/lock.js";
 export { RunLock } from "./pipeline/lock.js";
 export type { RunPipelineOptions } from "./pipeline/runner.js";
@@ -50,4 +59,4 @@ export {
   listStagedFiles,
 } from "./stacks.js";
 export type { ToolCommand, ToolSpec } from "./tools.js";
-export { resolveToolBin, TOOLS, toolCommand } from "./tools.js";
+export { bundledFilePath, resolveToolBin, TOOLS, toolCommand } from "./tools.js";
