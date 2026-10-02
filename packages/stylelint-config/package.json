@@ -1,0 +1,27 @@
+{
+  "name": "@develoz/stylelint-config",
+  "version": "0.1.0",
+  "description": "Opinionated shared Stylelint configuration for CSS, Tailwind and SCSS.",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "stylelint.base.json",
+    "stylelint.tailwind.json",
+    "stylelint.scss.json"
+  ],
+  "exports": {
+    "./base": "./stylelint.base.json",
+    "./tailwind": "./stylelint.tailwind.json",
+    "./scss": "./stylelint.scss.json",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "postcss-scss": "^4.0.9",
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-config-standard-scss": "^17.0.0",
+    "stylelint-config-tailwindcss": "^1.0.1"
+  },
+  "peerDependencies": {
+    "stylelint": "^17.0.0"
+  }
+}

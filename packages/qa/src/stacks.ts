@@ -13,6 +13,9 @@ export interface ProjectInfo {
   packageManager: PackageManagerKind;
   hasPackageJson: boolean;
   hasTypeScript: boolean;
+  hasTailwind: boolean;
+  hasScss: boolean;
+  hasStylelintConfig: boolean;
 }
 
 function readPackageJson(cwd: string): Record<string, unknown> | null {
@@ -77,6 +80,9 @@ export function detectPackageManager(cwd: string): PackageManagerKind {
 export function detectProject(cwd: string): ProjectInfo {
   const root = findWorkspaceRoot(cwd);
   const rootPkg = readPackageJson(root);
+  const cwdPkg = readPackageJson(cwd);
+  const deps = cwdPkg ? dependencyNames(cwdPkg) : new Set<string>();
+
   return {
     root,
     stack: detectStack(cwd),
@@ -84,7 +90,29 @@ export function detectProject(cwd: string): ProjectInfo {
     hasPackageJson: rootPkg !== null,
     hasTypeScript:
       existsSync(join(cwd, "tsconfig.json")) || existsSync(join(root, "tsconfig.json")),
+    hasTailwind: deps.has("tailwindcss"),
+    hasScss: deps.has("sass") || deps.has("node-sass") || deps.has("postcss-scss"),
+    hasStylelintConfig: hasStylelintConfig(cwd) || hasStylelintConfig(root),
   };
+}
+
+const STYLELINT_CONFIG_FILES = [
+  ".stylelintrc",
+  ".stylelintrc.json",
+  ".stylelintrc.js",
+  ".stylelintrc.cjs",
+  ".stylelintrc.mjs",
+  "stylelint.config.js",
+  "stylelint.config.cjs",
+  "stylelint.config.mjs",
+] as const;
+
+function hasStylelintConfig(dir: string): boolean {
+  if (STYLELINT_CONFIG_FILES.some((name) => existsSync(join(dir, name)))) {
+    return true;
+  }
+  const pkg = readPackageJson(dir);
+  return typeof pkg?.stylelint === "object" && pkg.stylelint !== null;
 }
 
 /**

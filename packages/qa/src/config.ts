@@ -49,6 +49,15 @@ export interface ReportConfig {
   directory?: string;
 }
 
+export interface StylesConfig {
+  /** Force on/off. Default is auto-detect: a stylelint config, Tailwind or SCSS. */
+  enabled?: boolean;
+  /** Override the stylesheet globs passed to stylelint. */
+  files?: readonly string[];
+  /** Explicit stylelint config path. */
+  configPath?: string;
+}
+
 export interface PipelineConfig {
   preSteps?: readonly PipelineStep[];
   postSteps?: readonly PipelineStep[];
@@ -66,6 +75,7 @@ export interface QaConfig {
   duplication?: DuplicationConfig;
   smells?: SmellsConfig;
   report?: ReportConfig;
+  styles?: StylesConfig;
   pipeline?: PipelineConfig;
 }
 

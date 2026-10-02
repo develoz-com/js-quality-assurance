@@ -31,6 +31,7 @@ that design and swaps the Ruby tools for JS/TS ones.
 | `@develoz/biome-config` | Default lint + format presets (`base`, `react`, `next`) |
 | `@develoz/eslint-config` | Opt-in flat configs (`base`, `react`, `next`) |
 | `@develoz/prettier-config` | Opt-in formatter preset |
+| `@develoz/stylelint-config` | Opt-in Stylelint presets (`base`, `tailwind`, `scss`) |
 
 ## CLI surface
 
@@ -110,12 +111,23 @@ or explicitly via `report.enabled`.
 | `biome.sarif` | `qa lint` | `--reporter=default --reporter=sarif --reporter-file=…` |
 | `biome-smells.sarif` | `qa smells` | same |
 | `jscpd-report.sarif` | `qa duplication` | `--reporters console,sarif --output …` |
+| `stylelint.json` | `qa styles` | `--formatter=json --output-file …` |
 | `dependency-cruiser.json` | `qa boundaries:report` | `--output-type json --output-to …` |
 | `junit.xml` | `qa coverage` | `--reporter=junit --outputFile.junit=…` |
 
-`qa report` merges the SARIF files and converts the dependency-cruiser JSON into
-`qa.sarif` for GitHub code scanning. Knip is not included: it writes SARIF to
-stdout only and the pipeline does not redirect.
+`qa report` merges the SARIF files and converts the dependency-cruiser and
+stylelint JSON into `qa.sarif` for GitHub code scanning. Knip is not included:
+it writes SARIF to stdout only and the pipeline does not redirect.
+
+### Styles
+
+`qa styles` is opt-in and auto-detected: it runs when the project has a
+stylelint config, Tailwind, or SCSS. It uses the project's stylelint config when
+present, otherwise the shipped `@develoz/stylelint-config` preset (`tailwind`
+when Tailwind is detected, `scss` when SCSS, else `base`). The presets are
+lint-only on purpose: Biome owns formatting, so `@stylistic` rules are not
+included and the two tools cannot disagree. Biome also lints CSS, but stylelint
+adds rule depth, Tailwind coverage and SCSS, which Biome does not support.
 
 ## Milestones
 

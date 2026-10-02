@@ -10,6 +10,7 @@ export {
   buildLintSteps,
   buildPreCommitSteps,
   buildSmellsStep,
+  buildStylesStep,
   buildTestStep,
   buildTypecheckStep,
   hasStagedTypeScript,
@@ -30,6 +31,7 @@ export type {
   ReportConfig,
   SmellsConfig,
   StackKind,
+  StylesConfig,
 } from "./config.js";
 export { DEFAULT_COVERAGE_THRESHOLDS, defineConfig } from "./config.js";
 export type { CoverageSources, ResolvedCoverage } from "./coverage.js";

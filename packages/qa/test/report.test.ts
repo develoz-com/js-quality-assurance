@@ -58,4 +58,22 @@ describe("buildReport", () => {
     writeFileSync(join(dir, "biome.sarif"), "{ not json");
     expect(buildReport(dir).inputs).toEqual([]);
   });
+
+  it("converts stylelint json", () => {
+    const dir = tempDir();
+    writeFileSync(
+      join(dir, "stylelint.json"),
+      JSON.stringify([
+        {
+          source: "a.css",
+          warnings: [{ line: 1, column: 1, rule: "r", severity: "error", text: "x" }],
+        },
+      ])
+    );
+
+    const result = buildReport(dir);
+
+    expect(result.inputs).toEqual(["stylelint.json"]);
+    expect(result.resultCount).toBe(1);
+  });
 });

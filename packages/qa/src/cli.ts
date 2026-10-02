@@ -13,6 +13,7 @@ import {
   buildLintSteps,
   buildPreCommitSteps,
   buildSmellsStep,
+  buildStylesStep,
   buildTestStep,
   buildTypecheckStep,
   hasStagedTypeScript,
@@ -161,6 +162,7 @@ Commands:
   boundaries   Enforce architecture rules (dependency-cruiser)
   duplication  Detect copy/paste (jscpd)
   smells       Flag complex or suspicious code (project Biome lint rules)
+  styles       Lint CSS/Tailwind/SCSS with stylelint (auto-enabled)
   audit        Audit dependencies for known vulnerabilities
   report       Merge gate artifacts (SARIF + dependency-cruiser) into qa.sarif
   hooks install  Install the tracked .githooks/pre-commit hook
@@ -211,6 +213,8 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
       return execute(cwd, "duplication", buildDuplicationStep(ctx), options);
     case "smells":
       return execute(cwd, "smells", buildSmellsStep(ctx), options);
+    case "styles":
+      return execute(cwd, "styles", buildStylesStep(ctx), options);
     case "audit":
       return execute(cwd, "audit", buildAuditStep(ctx), options);
     case "hooks":

@@ -108,9 +108,27 @@ export const TOOLS = {
   knip: { pkg: "knip", bin: "knip" },
   jscpd: { pkg: "jscpd", bin: "jscpd" },
   depcruise: { pkg: "dependency-cruiser", bin: "depcruise" },
+  stylelint: { pkg: "stylelint", bin: "stylelint" },
 } as const satisfies Record<string, ToolSpec>;
 
 /** Absolute path to a file shipped inside this package, resolved from its install root. */
 export function bundledFilePath(relative: string): string {
   return join(selfDir, "..", relative);
+}
+
+/**
+ * Resolves a file inside another installed package (e.g. a shared preset),
+ * preferring this package's own dependency tree.
+ */
+export function resolvePackageFile(pkg: string, relative: string, cwd: string): string | null {
+  for (const resolver of [selfRequire, createRequire(join(cwd, "package.json"))]) {
+    const pkgPath = findPackageJson(resolver, pkg);
+    if (pkgPath) {
+      const absolute = join(dirname(pkgPath), relative);
+      if (existsSync(absolute)) {
+        return absolute;
+      }
+    }
+  }
+  return null;
 }

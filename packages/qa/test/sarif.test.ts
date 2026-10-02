@@ -5,6 +5,7 @@ import {
   isSarifLog,
   mergeSarif,
   SARIF_SCHEMA,
+  stylelintToSarif,
 } from "../src/reporters/sarif.js";
 
 describe("dependencyCruiserToSarif", () => {
@@ -72,5 +73,38 @@ describe("isSarifLog", () => {
     expect(isSarifLog(dependencyCruiserToSarif({}))).toBe(true);
     expect(isSarifLog({})).toBe(false);
     expect(isSarifLog(null)).toBe(false);
+  });
+});
+
+describe("stylelintToSarif", () => {
+  it("maps warnings to results with rule, level, region and source", () => {
+    const log = stylelintToSarif([
+      {
+        source: "src/app.css",
+        warnings: [
+          {
+            line: 3,
+            column: 5,
+            rule: "color-no-invalid-hex",
+            severity: "error",
+            text: "Invalid hex color",
+          },
+          { line: 1, column: 1, rule: "custom", severity: "warning", text: "warn" },
+        ],
+      },
+    ]);
+
+    expect(log.runs[0]?.tool.driver.name).toBe("stylelint");
+    expect(countResults(log)).toBe(2);
+    expect(log.runs[0]?.results[0]?.ruleId).toBe("color-no-invalid-hex");
+    expect(log.runs[0]?.results[0]?.level).toBe("error");
+    expect(log.runs[0]?.results[0]?.locations[0]?.physicalLocation.region?.startLine).toBe(3);
+    expect(log.runs[0]?.results[0]?.locations[0]?.physicalLocation.artifactLocation.uri).toBe(
+      "src/app.css"
+    );
+  });
+
+  it("handles a file with no warnings", () => {
+    expect(countResults(stylelintToSarif([{ source: "a.css" }]))).toBe(0);
   });
 });

@@ -41,6 +41,19 @@ export interface DependencyCruiserReport {
   summary?: { violations?: DependencyCruiserViolation[] };
 }
 
+interface StylelintWarning {
+  line?: number;
+  column?: number;
+  rule?: string;
+  severity?: string;
+  text?: string;
+}
+
+export interface StylelintFileResult {
+  source?: string;
+  warnings?: StylelintWarning[];
+}
+
 function emptySarif(toolName: string, informationUri?: string): SarifLog {
   return {
     $schema: SARIF_SCHEMA,
@@ -79,6 +92,53 @@ export function dependencyCruiserToSarif(report: DependencyCruiserReport): Sarif
       message: { text: `${violation.type ?? "dependency"}: ${violation.from ?? "?"} -> ${target}` },
       locations: [{ physicalLocation: { artifactLocation: { uri: violation.from ?? "unknown" } } }],
     });
+  }
+
+  if (rules.size > 0) {
+    run.tool.driver.rules = [...rules.values()];
+  }
+  return log;
+}
+
+/**
+ * Converts Stylelint's JSON formatter output (an array of file results) into
+ * SARIF. Stylelint has no built-in SARIF formatter.
+ */
+export function stylelintToSarif(results: readonly StylelintFileResult[]): SarifLog {
+  const log = emptySarif("stylelint", "https://stylelint.io");
+  const run = log.runs[0];
+  if (!run) {
+    return log;
+  }
+
+  const rules = new Map<string, SarifRule>();
+  for (const file of results) {
+    for (const warning of file.warnings ?? []) {
+      const ruleId = warning.rule ?? "stylelint";
+      if (!rules.has(ruleId)) {
+        rules.set(ruleId, { id: ruleId, name: ruleId, shortDescription: { text: ruleId } });
+      }
+      const region: { startLine?: number; startColumn?: number } = {};
+      if (warning.line !== undefined) {
+        region.startLine = warning.line;
+      }
+      if (warning.column !== undefined) {
+        region.startColumn = warning.column;
+      }
+      run.results.push({
+        ruleId,
+        level: warning.severity === "error" ? "error" : "warning",
+        message: { text: warning.text ?? ruleId },
+        locations: [
+          {
+            physicalLocation: {
+              artifactLocation: { uri: file.source ?? "unknown" },
+              ...(Object.keys(region).length > 0 ? { region } : {}),
+            },
+          },
+        ],
+      });
+    }
   }
 
   if (rules.size > 0) {

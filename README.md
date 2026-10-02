@@ -17,6 +17,7 @@ a generated pre-commit hook. Stack-aware for generic Node, React, and Next.js.
 | `@develoz/biome-config` | Default lint and format presets |
 | `@develoz/eslint-config` | Opt-in ESLint flat configs |
 | `@develoz/prettier-config` | Opt-in Prettier preset |
+| `@develoz/stylelint-config` | Opt-in Stylelint presets (base, tailwind, scss) |
 
 ## Development
 
@@ -43,6 +44,7 @@ Requires Node >= 22.12 and pnpm >= 9.
 | `qa boundaries` | dependency-cruiser | skipped without a rules file |
 | `qa duplication` | jscpd | fails on any duplication by default |
 | `qa smells` | Biome lint rules (project-configured) | source only, warnings fail |
+| `qa styles` | stylelint (standard + Tailwind/SCSS) | opt-in; runs when Tailwind, SCSS or a stylelint config is present |
 | `qa audit` | npm/pnpm/yarn/bun audit | severity gate, default high |
 | `qa ci` | all of the above | fail-fast, run-locked |
 | `qa report` | merges SARIF + dependency-cruiser JSON | writes `dist/qa/qa.sarif` |

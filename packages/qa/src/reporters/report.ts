@@ -7,6 +7,8 @@ import {
   isSarifLog,
   mergeSarif,
   type SarifLog,
+  type StylelintFileResult,
+  stylelintToSarif,
 } from "./sarif.js";
 
 export const DEFAULT_REPORT_DIR = "dist/qa";
@@ -15,6 +17,7 @@ export const REPORT_FILE = "qa.sarif";
 /** SARIF files written by the individual gates. */
 const SARIF_INPUTS = ["biome.sarif", "biome-smells.sarif", "jscpd-report.sarif"] as const;
 const DEPCRUISER_INPUT = "dependency-cruiser.json";
+const STYLELINT_INPUT = "stylelint.json";
 
 export interface BuildReportResult {
   outputPath: string;
@@ -50,6 +53,12 @@ export function buildReport(directory: string): BuildReportResult {
   if (depcruise !== null) {
     logs.push(dependencyCruiserToSarif(depcruise as DependencyCruiserReport));
     inputs.push(DEPCRUISER_INPUT);
+  }
+
+  const stylelint = tryReadJson(join(directory, STYLELINT_INPUT));
+  if (Array.isArray(stylelint)) {
+    logs.push(stylelintToSarif(stylelint as StylelintFileResult[]));
+    inputs.push(STYLELINT_INPUT);
   }
 
   const merged = mergeSarif(logs);

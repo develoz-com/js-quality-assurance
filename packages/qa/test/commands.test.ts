@@ -16,6 +16,7 @@ import {
   buildLintSteps,
   buildPreCommitSteps,
   buildSmellsStep,
+  buildStylesStep,
   buildTestStep,
   buildTypecheckStep,
   hasStagedTypeScript,
@@ -31,6 +32,9 @@ const defaultProject: ProjectInfo = {
   packageManager: "npm",
   hasPackageJson: true,
   hasTypeScript: true,
+  hasTailwind: false,
+  hasScss: false,
+  hasStylelintConfig: false,
 };
 
 function makeContext(overrides: Partial<BuildContext> = {}): BuildContext {
@@ -348,6 +352,52 @@ describe("report artifacts", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("buildStylesStep", () => {
+  it("skips when not applicable", () => {
+    expect(buildStylesStep(makeContext())).toEqual([]);
+  });
+
+  it("uses the project stylelint config when present", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-styles-own-"));
+    try {
+      const ctx = makeContext({
+        cwd: dir,
+        project: { ...defaultProject, root: dir, hasStylelintConfig: true },
+      });
+      const args = buildStylesStep(ctx)[0]?.args ?? [];
+      expect(args).toContain("--allow-empty-input");
+      expect(args).toContain("**/*.css");
+      expect(args.some((arg) => arg.startsWith("--config="))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("applies the shipped tailwind preset and scss syntax when detected", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-styles-tw-"));
+    try {
+      const ctx = makeContext({
+        cwd: dir,
+        project: { ...defaultProject, root: dir, hasTailwind: true, hasScss: true },
+      });
+      const args = buildStylesStep(ctx)[0]?.args ?? [];
+      expect(args.some((arg) => arg.includes("stylelint.tailwind.json"))).toBe(true);
+      expect(args).toContain("--custom-syntax=postcss-scss");
+      expect(args).toContain("**/*.scss");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("honours styles.enabled=false", () => {
+    const ctx = makeContext({
+      project: { ...defaultProject, hasTailwind: true },
+      config: { styles: { enabled: false } },
+    });
+    expect(buildStylesStep(ctx)).toEqual([]);
   });
 });
 

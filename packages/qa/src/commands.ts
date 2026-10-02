@@ -5,7 +5,13 @@ import type { ResolvedCoverage } from "./coverage.js";
 import type { PipelineStep } from "./pipeline/types.js";
 import { DEFAULT_REPORT_DIR } from "./reporters/report.js";
 import { listStagedFiles, type PackageManagerKind, type ProjectInfo } from "./stacks.js";
-import { bundledFilePath, TOOLS, type ToolCommand, toolCommand } from "./tools.js";
+import {
+  bundledFilePath,
+  resolvePackageFile,
+  TOOLS,
+  type ToolCommand,
+  toolCommand,
+} from "./tools.js";
 
 const SOURCE_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mjs", "cjs"] as const;
 const BIOME_CONFIG_FILES = ["biome.json", "biome.jsonc", ".biome.json"] as const;
@@ -327,6 +333,51 @@ export function buildAuditStep(ctx: BuildContext): PipelineStep[] {
   ];
 }
 
+function stylesApplicable(ctx: BuildContext): boolean {
+  if (ctx.config.styles?.enabled !== undefined) {
+    return ctx.config.styles.enabled;
+  }
+  return ctx.project.hasStylelintConfig || ctx.project.hasTailwind || ctx.project.hasScss;
+}
+
+/**
+ * CSS/Tailwind/SCSS gate. Opt-in: runs only when the project has a stylelint
+ * config, Tailwind, or SCSS. Uses the shipped preset when the project has no
+ * stylelint config of its own.
+ */
+export function buildStylesStep(ctx: BuildContext): PipelineStep[] {
+  if (!stylesApplicable(ctx)) {
+    return [];
+  }
+  const stylelint = toolCommand(TOOLS.stylelint, ctx.cwd);
+  if (!stylelint) {
+    return [];
+  }
+
+  const { hasTailwind, hasScss, hasStylelintConfig } = ctx.project;
+  const preset = hasTailwind ? "tailwind" : hasScss ? "scss" : "base";
+  const configPath =
+    ctx.config.styles?.configPath ??
+    (hasStylelintConfig
+      ? null
+      : resolvePackageFile("@develoz/stylelint-config", `stylelint.${preset}.json`, ctx.cwd));
+
+  const files = ctx.config.styles?.files ?? (hasScss ? ["**/*.css", "**/*.scss"] : ["**/*.css"]);
+  const args = ["--allow-empty-input"];
+  if (configPath) {
+    args.push(`--config=${configPath}`);
+  }
+  if (hasScss) {
+    args.push("--custom-syntax=postcss-scss");
+  }
+  if (reportEnabled(ctx)) {
+    args.push("--formatter=json", `--output-file=${join(reportDir(ctx), "stylelint.json")}`);
+  }
+  args.push(...files);
+
+  return [step("styles", stylelint, args)];
+}
+
 export function buildCiSteps(ctx: BuildContext): PipelineStep[] {
   return [
     ...buildAuditStep(ctx),
@@ -336,6 +387,7 @@ export function buildCiSteps(ctx: BuildContext): PipelineStep[] {
     ...buildDeadcodeStep(ctx),
     ...buildDuplicationStep(ctx),
     ...buildSmellsStep(ctx),
+    ...buildStylesStep(ctx),
     ...buildCoverageStep(ctx),
   ];
 }

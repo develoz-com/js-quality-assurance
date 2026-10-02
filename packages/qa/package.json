@@ -35,9 +35,11 @@
   },
   "dependencies": {
     "@biomejs/biome": "^2.5.15",
+    "@develoz/stylelint-config": "workspace:*",
     "dependency-cruiser": "^18.5.0",
     "jscpd": "^5.4.0",
-    "knip": "^6.39.0"
+    "knip": "^6.39.0",
+    "stylelint": "^17.16.0"
   },
   "peerDependencies": {
     "@vitest/coverage-v8": "^5.0.0",
