@@ -100,8 +100,11 @@ These are the review findings folded into the design, not left ambiguous:
 
 - **M1 — Core engine & run lock. DONE.** Pipeline runner (subprocess, fail-fast,
   exit-code propagation), run lock with stale reclamation, CLI `ci`,
-  `--help`/`--version`. 13 unit tests, plus an end-to-end check of sequential
-  run, fail-fast, and lock contention.
+  `--help`/`--version`. 19 unit and integration tests, including a real
+  multi-process lock contention test. Chief-mechanic review findings addressed:
+  atomic stale-lock reclamation by rename, ownership check on release, spawn
+  failures and throwing conditions surfaced as failed steps, signal exit codes
+  mapped to `128 + N`, `prepack` builds `dist`.
 - **M2 — Presets.** Validate `@develoz/biome-config` (base/react/next), the
   opt-in `@develoz/eslint-config` flat configs against ESLint 10, and
   `@develoz/prettier-config`.
