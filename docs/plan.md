@@ -168,17 +168,26 @@ adds rule depth, Tailwind coverage and SCSS, which Biome does not support.
   `qa pre-commit`: staged lint, staged format only for non-Biome formatters, and
   a **full** `tsc --noEmit` when TypeScript is staged (never a file list).
   Verified end-to-end in a real repository.
-- **M5 — Publishing & adoption.** Changesets + npm trusted publishing (OIDC),
-  `@develoz/quality-assurance` as a devDependency of `race-control/plugins/opencode`, a
-  `make qa` target, asset-drift assertion, and an OpenCode agent-pack QA skill.
+- **M5 — Publishing & adoption. DONE**, except the agent-pack skill, which was
+  dropped deliberately. Published `0.1.0` through `0.2.1` (trusted publishing via
+  OIDC on `v*` tags). `race-control/plugins/opencode` takes
+  `@develoz/quality-assurance` as a devDependency behind `make qa`, the served
+  bundle is rebuilt and its embedded copy synced, and `make all` plus the live
+  host-fixture probes pass. The plugin's JS gates run at zero lint/dead-code/
+  duplication findings and 100% line coverage (`docs/quality-assurance.md` there).
+  - **Dropped: OpenCode agent-pack QA skill.** A skill ships to every OpenCode
+    session regardless of the project, and there is no guarantee a given project
+    has `@develoz/quality-assurance` installed. Telling agents to run a CLI that
+    may be absent is worse than saying nothing.
 
 ## Open assumptions
 
-- The `@develoz` npm scope is assumed available; npm publishing requires auth
-  that this checkout does not have. GitHub org `develoz-com` exists. Until the
-  scope has npm **trusted publishing** configured, the release workflow is
-  `workflow_dispatch` only — an automatic publish was attempted on the first
-  push and failed with `404 Not found` from npm.
+- The `@develoz` npm scope exists and is owned by the org; both packages are
+  published (`latest` is `0.2.1`) and trusted publishing is configured for
+  `develoz-com/js-quality-assurance` on `release.yml`. The release workflow
+  publishes on `v*` tags through OIDC. The first publish had to be bootstrapped
+  with a bypass-2FA token, because npm cannot attach a trusted publisher to a
+  package that does not exist yet; that token should be revoked.
 - Tool versions are pinned from the npm registry as of Oct 2026 (Biome 2.5.15,
   ESLint 10.12, typescript-eslint 8.71, Vitest 5.0.3, TypeScript 5.9.3,
   knip 6.39, dependency-cruiser 18.5, jscpd 5.4). TypeScript is pinned to the
