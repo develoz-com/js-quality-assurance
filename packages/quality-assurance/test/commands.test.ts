@@ -35,6 +35,7 @@ const defaultProject: ProjectInfo = {
   hasTailwind: false,
   hasScss: false,
   hasStylelintConfig: false,
+  testRunner: "vitest",
 };
 
 function makeContext(overrides: Partial<BuildContext> = {}): BuildContext {
@@ -116,6 +117,46 @@ describe("buildCoverageStep", () => {
     expect(args).toContain("--coverage.thresholds.lines=90");
     expect(args).toContain("--coverage.thresholds.branches=85");
     expect(args).toContain("--coverage.thresholds.statements=100");
+  });
+});
+
+describe("bun runner", () => {
+  const bunContext = (config: BuildContext["config"] = {}) =>
+    makeContext({ project: { ...defaultProject, testRunner: "bun" }, config });
+
+  it("runs bun test for the test step", () => {
+    const step = buildTestStep(bunContext())[0];
+    expect(step?.command).toBe("bun");
+    expect(step?.args).toEqual(["test"]);
+  });
+
+  it("writes lcov, then enforces thresholds in a separate step", () => {
+    const steps = buildCoverageStep(bunContext());
+    expect(steps.map((step) => step.name)).toEqual(["coverage", "coverage:check"]);
+    expect(steps[0]?.command).toBe("bun");
+    expect(steps[0]?.args).toContain("--coverage");
+    expect(steps[0]?.args).toContain("--coverage-reporter=lcov");
+    expect(steps[1]?.args).toContain("coverage:check");
+    expect(steps[1]?.args?.at(-1)).toMatch(/lcov\.info$/);
+  });
+
+  it("does not use vitest flags for bun", () => {
+    const args = buildCoverageStep(bunContext()).flatMap((step) => step.args ?? []);
+    expect(args.some((arg) => arg.startsWith("--coverage.thresholds"))).toBe(false);
+  });
+
+  it("lets config force a runner over detection", () => {
+    const step = buildTestStep(makeContext({ config: { test: { runner: "bun" } } }))[0];
+    expect(step?.command).toBe("bun");
+  });
+
+  it("keeps vitest when config says vitest even for a bun project", () => {
+    const ctx = makeContext({
+      project: { ...defaultProject, testRunner: "bun" },
+      config: { test: { runner: "vitest" } },
+    });
+    expect(buildCoverageStep(ctx)[0]?.name).toBe("coverage");
+    expect(buildCoverageStep(ctx)[0]?.command).not.toBe("bun");
   });
 });
 

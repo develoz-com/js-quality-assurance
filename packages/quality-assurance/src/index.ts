@@ -32,10 +32,14 @@ export type {
   SmellsConfig,
   StackKind,
   StylesConfig,
+  TestConfig,
+  TestRunnerKind,
 } from "./config.js";
 export { DEFAULT_COVERAGE_THRESHOLDS, defineConfig } from "./config.js";
 export type { CoverageSources, ResolvedCoverage } from "./coverage.js";
 export { resolveCoverage } from "./coverage.js";
+export type { CoverageViolation, LcovCoverage } from "./coverage-lcov.js";
+export { checkThresholds, parseLcov, percentage } from "./coverage-lcov.js";
 export { RunLockBusyError } from "./errors.js";
 export type { HooksInstallResult } from "./generators/hooks.js";
 export {

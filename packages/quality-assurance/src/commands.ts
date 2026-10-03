@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { QaConfig } from "./config.js";
+import type { QaConfig, TestRunnerKind } from "./config.js";
 import type { ResolvedCoverage } from "./coverage.js";
 import type { PipelineStep } from "./pipeline/types.js";
 import { DEFAULT_REPORT_DIR } from "./reporters/report.js";
 import { listStagedFiles, type PackageManagerKind, type ProjectInfo } from "./stacks.js";
-import { resolvePackageFile, TOOLS, type ToolCommand, toolCommand } from "./tools.js";
+import { resolvePackageFile, selfCliPath, TOOLS, type ToolCommand, toolCommand } from "./tools.js";
 
 const SOURCE_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mjs", "cjs"] as const;
 const BIOME_CONFIG_FILES = ["biome.json", "biome.jsonc", ".biome.json"] as const;
@@ -154,7 +154,24 @@ export function buildFormatSteps(
   return [step("format", biome, args)];
 }
 
+function testRunner(ctx: BuildContext): TestRunnerKind {
+  return ctx.config.test?.runner ?? ctx.project.testRunner;
+}
+
+const DEFAULT_COVERAGE_EXCLUDE = ["test/", "tests/", "__tests__/", "dist/", "coverage/"] as const;
+
+function bunStep(name: string, args: string[]): PipelineStep {
+  return { name, command: "bun", args };
+}
+
+export function coverageExclude(ctx: BuildContext): readonly string[] {
+  return ctx.config.coverage?.exclude ?? DEFAULT_COVERAGE_EXCLUDE;
+}
+
 export function buildTestStep(ctx: BuildContext): PipelineStep[] {
+  if (testRunner(ctx) === "bun") {
+    return [bunStep("test", ["test"])];
+  }
   const vitest = toolCommand(TOOLS.vitest, ctx.cwd);
   if (!vitest) {
     return [];
@@ -162,7 +179,32 @@ export function buildTestStep(ctx: BuildContext): PipelineStep[] {
   return [step("test", vitest, ["run"])];
 }
 
+/**
+ * Bun has no branch coverage and its own threshold enforcement is inconsistent
+ * across versions, so bun runs write lcov and a follow-up step enforces the
+ * thresholds uniformly. Test files are excluded from the measured set.
+ */
+function buildBunCoverageSteps(ctx: BuildContext): PipelineStep[] {
+  const dir = join(ctx.cwd, "coverage");
+  const run = bunStep("coverage", [
+    "test",
+    "--coverage",
+    "--coverage-reporter=lcov",
+    `--coverage-dir=${dir}`,
+  ]);
+  const check: PipelineStep = {
+    name: "coverage:check",
+    command: process.execPath,
+    args: [selfCliPath(), "coverage:check", join(dir, "lcov.info")],
+    cwd: ctx.cwd,
+  };
+  return [run, check];
+}
+
 export function buildCoverageStep(ctx: BuildContext): PipelineStep[] {
+  if (testRunner(ctx) === "bun") {
+    return buildBunCoverageSteps(ctx);
+  }
   const vitest = toolCommand(TOOLS.vitest, ctx.cwd);
   if (!vitest) {
     return [];

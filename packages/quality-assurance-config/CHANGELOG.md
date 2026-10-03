@@ -1,5 +1,11 @@
 # @develoz/quality-assurance-config
 
+## 0.2.0
+
+### Minor Changes
+
+- Support projects that test with Bun. The runner is detected from `bun:test` imports (or a bunfig.toml without vitest) and can be forced with `test.runner`. Bun has no threshold enforcement that works across versions and no branch data, so `qa coverage` writes lcov and a follow-up `coverage:check` step enforces line and function thresholds uniformly, excluding test files by default (`coverage.exclude`).
+
 ## 0.1.1
 
 ### Patch Changes

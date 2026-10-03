@@ -92,6 +92,48 @@ describe("detectProject", () => {
   });
 });
 
+describe("test runner detection", () => {
+  it("defaults to vitest", () => {
+    expect(detectProject(fixture({ name: "x" })).testRunner).toBe("vitest");
+  });
+
+  it("detects bun from a bun:test import", () => {
+    const dir = fixture({ name: "x" }, ["test/a.test.js"]);
+    writeFileSync(join(dir, "test", "a.test.js"), 'import { test } from "bun:test"\n');
+    expect(detectProject(dir).testRunner).toBe("bun");
+  });
+
+  it("detects bun from bunfig.toml when vitest is not a dependency", () => {
+    expect(detectProject(fixture({ name: "x" }, ["bunfig.toml"])).testRunner).toBe("bun");
+  });
+
+  it("keeps vitest when bunfig.toml exists but vitest is a dependency", () => {
+    const dir = fixture({ devDependencies: { vitest: "^5.0.0" } }, ["bunfig.toml"]);
+    expect(detectProject(dir).testRunner).toBe("vitest");
+  });
+
+  it("does not treat a mere mention of bun:test inside a test file as a bun project", () => {
+    const dir = fixture({ name: "x" }, ["test/a.test.js"]);
+    writeFileSync(
+      join(dir, "test", "a.test.js"),
+      'it("detects bun", () => { write(\'import { test } from "bun:test"\') })\n// "bun:test"\n'
+    );
+    expect(detectProject(dir).testRunner).toBe("vitest");
+  });
+
+  it("accepts a require of bun:test", () => {
+    const dir = fixture({ name: "x" }, ["test/a.test.js"]);
+    writeFileSync(join(dir, "test", "a.test.js"), 'const { test } = require("bun:test")\n');
+    expect(detectProject(dir).testRunner).toBe("bun");
+  });
+
+  it("ignores non-test files that mention bun:test", () => {
+    const dir = fixture({ name: "x" }, ["test/helper.js"]);
+    writeFileSync(join(dir, "test", "helper.js"), '// uses "bun:test"\n');
+    expect(detectProject(dir).testRunner).toBe("vitest");
+  });
+});
+
 describe("listStagedFiles", () => {
   it("returns an empty list outside a git repository", () => {
     expect(listStagedFiles(fixture({}), ["ts"])).toEqual([]);

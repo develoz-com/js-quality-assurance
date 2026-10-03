@@ -111,6 +111,15 @@ export const TOOLS = {
   stylelint: { pkg: "stylelint", bin: "stylelint" },
 } as const satisfies Record<string, ToolSpec>;
 
+/**
+ * Absolute path to this CLI's executable entrypoint, for self-invoked steps.
+ * This is bin/qa.js, not dist/cli.js: the compiled module only exports `main`
+ * and does nothing when run directly.
+ */
+export function selfCliPath(): string {
+  return join(selfDir, "..", "bin", "qa.js");
+}
+
 export function resolvePackageFile(pkg: string, relative: string, cwd: string): string | null {
   for (const resolver of [selfRequire, createRequire(join(cwd, "package.json"))]) {
     const pkgPath = findPackageJson(resolver, pkg);

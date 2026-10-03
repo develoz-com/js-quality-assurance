@@ -1,11 +1,26 @@
 import type { PipelineStep } from "./pipeline/types.js";
 
 export type StackKind = "node" | "react" | "next";
+export type TestRunnerKind = "vitest" | "bun";
 export type LinterKind = "biome" | "eslint";
 export type FormatterKind = "biome" | "prettier";
 export type AuditLevel = "low" | "moderate" | "high" | "critical";
 
+export interface TestConfig {
+  /**
+   * Test runner. Auto-detected when omitted: `bun` when tests import `bun:test`
+   * or the project has a bunfig.toml, otherwise `vitest`.
+   */
+  runner?: TestRunnerKind;
+}
+
 export interface CoverageConfig {
+  /**
+   * Globs excluded from the coverage gate on the bun runner (lcov is parsed by
+   * qa, so test files and helpers can be kept out). Substring match on the
+   * source path with `*` ignored. Default: tests and dist.
+   */
+  exclude?: readonly string[];
   /** Minimum percent, or a negative number for "at most N uncovered". */
   lines?: number;
   branches?: number;
@@ -82,6 +97,7 @@ export interface QaConfig {
   linter?: LinterKind;
   formatter?: FormatterKind;
   coverage?: CoverageConfig;
+  test?: TestConfig;
   audit?: AuditConfig;
   boundaries?: BoundariesConfig;
   deadcode?: DeadcodeConfig;

@@ -16,11 +16,13 @@ import {
   buildStylesStep,
   buildTestStep,
   buildTypecheckStep,
+  coverageExclude,
   hasStagedTypeScript,
   reportDir,
 } from "./commands.js";
 import type { QaConfig } from "./config.js";
 import { resolveCoverage } from "./coverage.js";
+import { checkThresholds, parseLcov, percentage } from "./coverage-lcov.js";
 import { RunLockBusyError } from "./errors.js";
 import { HooksConflictError, installHooks, NotAGitRepositoryError } from "./generators/hooks.js";
 import { RunLock } from "./pipeline/lock.js";
@@ -122,6 +124,29 @@ function ciSteps(ctx: BuildContext): PipelineStep[] {
   ];
 }
 
+function runCoverageCheck(ctx: BuildContext, lcovPath: string | undefined): number {
+  if (!lcovPath || !existsSync(lcovPath)) {
+    console.error(`qa: coverage:check: no lcov report at ${lcovPath ?? "(none given)"}`);
+    return 1;
+  }
+  const actual = parseLcov(readFileSync(lcovPath, "utf8"), coverageExclude(ctx));
+  const { lines, functions, branches } = ctx.coverage;
+  const violations = checkThresholds(actual, { lines, functions, branches });
+
+  const fmt = (metric: "lines" | "functions" | "branches"): string =>
+    actual[metric].found === 0 ? "n/a" : `${percentage(actual[metric]).toFixed(2)}%`;
+  console.log(
+    `coverage: lines ${fmt("lines")}, functions ${fmt("functions")}, branches ${fmt("branches")}`
+  );
+
+  for (const violation of violations) {
+    console.error(
+      `coverage: ${violation.metric} ${violation.actual.toFixed(2)}% is below the ${violation.minimum}% threshold`
+    );
+  }
+  return violations.length === 0 ? 0 : 1;
+}
+
 function runHooks(
   cwd: string,
   action: string | undefined,
@@ -157,7 +182,7 @@ Commands:
   format       Format with Biome (default) or Prettier    [--staged] [--write]
   typecheck    Type-check with tsc --noEmit
   test         Run the test suite once (no coverage)
-  coverage     Run the test suite once and enforce coverage thresholds
+  coverage     Run the test suite once and enforce coverage thresholds (vitest or bun)
   deadcode     Find unused files, exports and dependencies (knip)
   boundaries   Enforce architecture rules (dependency-cruiser)
   duplication  Detect copy/paste (jscpd)
@@ -217,6 +242,8 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
       return execute(cwd, "styles", buildStylesStep(ctx), options);
     case "audit":
       return execute(cwd, "audit", buildAuditStep(ctx), options);
+    case "coverage:check":
+      return runCoverageCheck(ctx, rest[0]);
     case "hooks":
       return runHooks(cwd, rest[0], ctx.project.packageManager);
     case "report": {

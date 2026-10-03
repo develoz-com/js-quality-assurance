@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { StackKind } from "./config.js";
+import type { StackKind, TestRunnerKind } from "./config.js";
 
 export type PackageManagerKind = "npm" | "pnpm" | "yarn" | "bun";
 
@@ -16,6 +16,7 @@ export interface ProjectInfo {
   hasTailwind: boolean;
   hasScss: boolean;
   hasStylelintConfig: boolean;
+  testRunner: TestRunnerKind;
 }
 
 function readPackageJson(cwd: string): Record<string, unknown> | null {
@@ -93,7 +94,56 @@ export function detectProject(cwd: string): ProjectInfo {
     hasTailwind: deps.has("tailwindcss"),
     hasScss: deps.has("sass") || deps.has("node-sass") || deps.has("postcss-scss"),
     hasStylelintConfig: hasStylelintConfig(cwd) || hasStylelintConfig(root),
+    testRunner: detectTestRunner(cwd, deps),
   };
+}
+
+const TEST_DIRS = ["test", "tests", "__tests__", "src"] as const;
+const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
+// An actual import or require of the module, not any mention of the string.
+const BUN_TEST_IMPORT =
+  /^\s*(?:import\b[^\n]*\bfrom\s*|import\s*|(?:const|let|var)\b[^\n]*=\s*require\()\s*["']bun:test["']/m;
+
+function usesBunTest(dir: string): boolean {
+  for (const name of TEST_DIRS) {
+    const folder = join(dir, name);
+    if (!existsSync(folder)) {
+      continue;
+    }
+    let entries: string[];
+    try {
+      entries = readdirSync(folder);
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!TEST_FILE.test(entry)) {
+        continue;
+      }
+      try {
+        if (BUN_TEST_IMPORT.test(readFileSync(join(folder, entry), "utf8"))) {
+          return true;
+        }
+      } catch {
+        // An unreadable test file cannot vote either way.
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Bun when the tests import `bun:test`, or the project has a bunfig.toml and no
+ * vitest dependency. Vitest otherwise.
+ */
+function detectTestRunner(cwd: string, deps: ReadonlySet<string>): TestRunnerKind {
+  if (usesBunTest(cwd)) {
+    return "bun";
+  }
+  if (existsSync(join(cwd, "bunfig.toml")) && !deps.has("vitest")) {
+    return "bun";
+  }
+  return "vitest";
 }
 
 const STYLELINT_CONFIG_FILES = [
