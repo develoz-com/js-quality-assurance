@@ -67,6 +67,30 @@ describe("coverage:check, run the way the pipeline runs it", () => {
     expect(result.stderr).toContain("no lcov report");
   });
 
+  it("measures a built bundle that the tests load", () => {
+    const { dir, lcovPath } = tempProject(
+      [
+        "SF:src/a.js\nFNF:1\nFNH:1\nLF:4\nLH:4\nend_of_record",
+        "SF:dist/bundle.js\nFNF:2\nFNH:1\nLF:10\nLH:5\nend_of_record",
+        "",
+      ].join("\n")
+    );
+    const result = run(dir, lcovPath);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("lines 64.29%");
+  });
+
+  it("excludes colocated test files", () => {
+    const { dir, lcovPath } = tempProject(
+      [
+        "SF:src/a.js\nFNF:1\nFNH:1\nLF:4\nLH:4\nend_of_record",
+        "SF:src/a.test.js\nFNF:2\nFNH:0\nLF:10\nLH:0\nend_of_record",
+        "",
+      ].join("\n")
+    );
+    expect(run(dir, lcovPath).status).toBe(0);
+  });
+
   it("excludes test files from the measured set", () => {
     const { dir, lcovPath } = tempProject(
       [

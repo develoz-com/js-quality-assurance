@@ -1,5 +1,11 @@
 # @develoz/quality-assurance-config
 
+## 0.2.1
+
+### Patch Changes
+
+- Do not exclude build output from the bun coverage gate by default. lcov only lists files the tests loaded, so excluding `dist/` silently dropped the main logic of any project whose tests run against a built bundle. Colocated `.test.`/`.spec.` files are now excluded.
+
 ## 0.2.0
 
 ### Minor Changes

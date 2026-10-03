@@ -18,7 +18,9 @@ export interface CoverageConfig {
   /**
    * Globs excluded from the coverage gate on the bun runner (lcov is parsed by
    * qa, so test files and helpers can be kept out). Substring match on the
-   * source path with `*` ignored. Default: tests and dist.
+   * source path with `*` ignored. Default: test directories, colocated
+   * `.test.`/`.spec.` files, coverage output and node_modules. Build output is
+   * not excluded: tests that run against a built bundle are measured through it.
    */
   exclude?: readonly string[];
   /** Minimum percent, or a negative number for "at most N uncovered". */

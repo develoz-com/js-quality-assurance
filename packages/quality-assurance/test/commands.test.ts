@@ -19,6 +19,7 @@ import {
   buildStylesStep,
   buildTestStep,
   buildTypecheckStep,
+  coverageExclude,
   hasStagedTypeScript,
 } from "../src/commands.js";
 import { resolveCoverage } from "../src/coverage.js";
@@ -143,6 +144,19 @@ describe("bun runner", () => {
   it("does not use vitest flags for bun", () => {
     const args = buildCoverageStep(bunContext()).flatMap((step) => step.args ?? []);
     expect(args.some((arg) => arg.startsWith("--coverage.thresholds"))).toBe(false);
+  });
+
+  it("does not exclude build output from the measured set by default", () => {
+    const exclude = coverageExclude(bunContext());
+    expect(exclude).not.toContain("dist/");
+    expect(exclude).toContain("test/");
+    expect(exclude).toContain(".test.");
+  });
+
+  it("lets config replace the exclusions", () => {
+    expect(coverageExclude(bunContext({ coverage: { exclude: ["fixtures/"] } }))).toEqual([
+      "fixtures/",
+    ]);
   });
 
   it("lets config force a runner over detection", () => {

@@ -158,7 +158,18 @@ function testRunner(ctx: BuildContext): TestRunnerKind {
   return ctx.config.test?.runner ?? ctx.project.testRunner;
 }
 
-const DEFAULT_COVERAGE_EXCLUDE = ["test/", "tests/", "__tests__/", "dist/", "coverage/"] as const;
+// lcov only lists files the tests actually loaded, so build output is never
+// excluded by default: a project whose tests run against its built bundle would
+// otherwise have its main logic silently dropped from the gate.
+const DEFAULT_COVERAGE_EXCLUDE = [
+  "test/",
+  "tests/",
+  "__tests__/",
+  ".test.",
+  ".spec.",
+  "coverage/",
+  "node_modules/",
+] as const;
 
 function bunStep(name: string, args: string[]): PipelineStep {
   return { name, command: "bun", args };
