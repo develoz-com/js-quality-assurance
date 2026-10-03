@@ -384,7 +384,7 @@ describe("buildStylesStep", () => {
         project: { ...defaultProject, root: dir, hasTailwind: true, hasScss: true },
       });
       const args = buildStylesStep(ctx)[0]?.args ?? [];
-      expect(args.some((arg) => arg.includes("stylelint.tailwind.json"))).toBe(true);
+      expect(args.some((arg) => arg.includes("stylelint/stylelint.tailwind.json"))).toBe(true);
       expect(args).toContain("--custom-syntax=postcss-scss");
       expect(args).toContain("**/*.scss");
     } finally {

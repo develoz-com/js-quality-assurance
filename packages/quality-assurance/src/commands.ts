@@ -5,13 +5,7 @@ import type { ResolvedCoverage } from "./coverage.js";
 import type { PipelineStep } from "./pipeline/types.js";
 import { DEFAULT_REPORT_DIR } from "./reporters/report.js";
 import { listStagedFiles, type PackageManagerKind, type ProjectInfo } from "./stacks.js";
-import {
-  bundledFilePath,
-  resolvePackageFile,
-  TOOLS,
-  type ToolCommand,
-  toolCommand,
-} from "./tools.js";
+import { resolvePackageFile, TOOLS, type ToolCommand, toolCommand } from "./tools.js";
 
 const SOURCE_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mjs", "cjs"] as const;
 const BIOME_CONFIG_FILES = ["biome.json", "biome.jsonc", ".biome.json"] as const;
@@ -43,7 +37,12 @@ function biomeConfigArgs(ctx: BuildContext): string[] {
   if (hasProjectBiomeConfig(ctx)) {
     return [];
   }
-  return [`--config-path=${bundledFilePath("config/biome.default.json")}`];
+  const configPath = resolvePackageFile(
+    "@develoz/quality-assurance-config",
+    "biome/biome.base.json",
+    ctx.cwd
+  );
+  return configPath ? [`--config-path=${configPath}`] : [];
 }
 
 export function reportEnabled(ctx: BuildContext): boolean {
@@ -360,7 +359,11 @@ export function buildStylesStep(ctx: BuildContext): PipelineStep[] {
     ctx.config.styles?.configPath ??
     (hasStylelintConfig
       ? null
-      : resolvePackageFile("@develoz/stylelint-config", `stylelint.${preset}.json`, ctx.cwd));
+      : resolvePackageFile(
+          "@develoz/quality-assurance-config",
+          `stylelint/stylelint.${preset}.json`,
+          ctx.cwd
+        ));
 
   const files = ctx.config.styles?.files ?? (hasScss ? ["**/*.css", "**/*.scss"] : ["**/*.css"]);
   const args = ["--allow-empty-input"];

@@ -1,4 +1,0 @@
-{
-  "ignore": ["test/fixtures/**", "qa.config.mjs"],
-  "ignoreDependencies": ["@develoz/stylelint-config", "jscpd", "eslint", "prettier", "stylelint"]
-}

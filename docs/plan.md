@@ -1,4 +1,4 @@
-# @develoz/qa — Implementation Plan
+# @develoz/quality-assurance — Implementation Plan
 
 Port of [`develoz-com/rails-quality-assurance`](https://github.com/develoz-com/rails-quality-assurance)
 to TypeScript. The gem's value is orchestration, not any single linter: shared
@@ -27,11 +27,13 @@ that design and swaps the Ruby tools for JS/TS ones.
 
 | Package | Role |
 | --- | --- |
-| `@develoz/qa` | CLI, pipeline engine, run lock, stack adapters, reporters, generators |
-| `@develoz/biome-config` | Default lint + format presets (`base`, `react`, `next`) |
-| `@develoz/eslint-config` | Opt-in flat configs (`base`, `react`, `next`) |
-| `@develoz/prettier-config` | Opt-in formatter preset |
-| `@develoz/stylelint-config` | Opt-in Stylelint presets (`base`, `tailwind`, `scss`) |
+| `@develoz/quality-assurance` | CLI, pipeline engine, run lock, stack adapters, reporters, generators |
+| `@develoz/quality-assurance-config` | Shared presets: Biome (`biome/base`, `biome/react`, `biome/next`), ESLint (`eslint/base`, `eslint/react`, `eslint/next`), Prettier (`prettier`), Stylelint (`stylelint/base`, `stylelint/tailwind`, `stylelint/scss`) |
+
+Consolidating the presets into one package keeps config-only consumers from
+installing the whole toolchain, and removes the duplicated Biome fallback that
+the CLI previously bundled. `linked` versioning in Changesets keeps the two in
+step.
 
 ## CLI surface
 
@@ -71,7 +73,7 @@ statements). Thresholds are injected as
 
 Atomic `mkdir` acquisition (no native addon), holder metadata
 (`pid`, `command`, `timestamp`, `user`) in
-`node_modules/.cache/@develoz/qa/run.lock/holder.json`. A lock whose PID is dead
+`node_modules/.cache/@develoz/quality-assurance/run.lock/holder.json`. A lock whose PID is dead
 or whose age exceeds 30 minutes is reclaimed. Contention prints the holder and
 exits 1.
 
@@ -123,7 +125,7 @@ it writes SARIF to stdout only and the pipeline does not redirect.
 
 `qa styles` is opt-in and auto-detected: it runs when the project has a
 stylelint config, Tailwind, or SCSS. It uses the project's stylelint config when
-present, otherwise the shipped `@develoz/stylelint-config` preset (`tailwind`
+present, otherwise the shipped `@develoz/quality-assurance-config` preset (`tailwind`
 when Tailwind is detected, `scss` when SCSS, else `base`). The presets are
 lint-only on purpose: Biome owns formatting, so `@stylistic` rules are not
 included and the two tools cannot disagree. Biome also lints CSS, but stylelint
@@ -138,9 +140,9 @@ adds rule depth, Tailwind coverage and SCSS, which Biome does not support.
   atomic stale-lock reclamation by rename, ownership check on release, spawn
   failures and throwing conditions surfaced as failed steps, signal exit codes
   mapped to `128 + N`, `prepack` builds `dist`.
-- **M2 — Presets.** Validate `@develoz/biome-config` (base/react/next), the
-  opt-in `@develoz/eslint-config` flat configs against ESLint 10, and
-  `@develoz/prettier-config`.
+- **M2 — Presets.** Validate `@develoz/quality-assurance-config` Biome
+  (base/react/next), the opt-in ESLint flat configs against ESLint 10, and
+  Prettier.
 - **M3 — Adapters & gates. DONE.** Stack detection (node/react/next) and
   workspace-root discovery; `qa lint|format|typecheck|test|coverage|deadcode|
   boundaries|duplication|smells|audit`. Single-pass coverage with
@@ -159,7 +161,7 @@ adds rule depth, Tailwind coverage and SCSS, which Biome does not support.
   a **full** `tsc --noEmit` when TypeScript is staged (never a file list).
   Verified end-to-end in a real repository.
 - **M5 — Publishing & adoption.** Changesets + npm trusted publishing (OIDC),
-  `@develoz/qa` as a devDependency of `race-control/plugins/opencode`, a
+  `@develoz/quality-assurance` as a devDependency of `race-control/plugins/opencode`, a
   `make qa` target, asset-drift assertion, and an OpenCode agent-pack QA skill.
 
 ## Open assumptions

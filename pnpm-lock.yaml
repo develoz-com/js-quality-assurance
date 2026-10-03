@@ -188,30 +188,14 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@24.19.1)(@vitest/coverage-v8@5.0.3)(vite@6.4.3(@types/node@24.19.1)(jiti@2.7.0)(yaml@2.9.1))
 
-  packages/biome-config: {}
-
-  packages/eslint-config:
-    dependencies:
-      '@eslint/js':
-        specifier: ^10.0.0
-        version: 10.0.1(eslint@10.12.0(jiti@2.7.0)(supports-color@7.2.0))
-      eslint:
-        specifier: ^10.0.0
-        version: 10.12.0(jiti@2.7.0)(supports-color@7.2.0)
-      typescript-eslint:
-        specifier: ^8.0.0
-        version: 8.71.0(eslint@10.12.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
-
-  packages/prettier-config: {}
-
-  packages/qa:
+  packages/quality-assurance:
     dependencies:
       '@biomejs/biome':
         specifier: ^2.5.15
         version: 2.5.15
-      '@develoz/stylelint-config':
+      '@develoz/quality-assurance-config':
         specifier: workspace:*
-        version: link:../stylelint-config
+        version: link:../quality-assurance-config
       dependency-cruiser:
         specifier: ^18.5.0
         version: 18.5.0
@@ -244,8 +228,14 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@24.19.1)(@vitest/coverage-v8@5.0.3)(vite@6.4.3(@types/node@24.19.1)(jiti@2.7.0)(yaml@2.9.1))
 
-  packages/stylelint-config:
+  packages/quality-assurance-config:
     dependencies:
+      '@eslint/js':
+        specifier: ^10.0.0
+        version: 10.0.1(eslint@10.12.0(jiti@2.7.0)(supports-color@7.2.0))
+      eslint:
+        specifier: ^10.0.0
+        version: 10.12.0(jiti@2.7.0)(supports-color@7.2.0)
       postcss-scss:
         specifier: ^4.0.9
         version: 4.0.9(postcss@8.5.28)
@@ -261,6 +251,9 @@ importers:
       stylelint-config-tailwindcss:
         specifier: ^1.0.1
         version: 1.0.1(stylelint@17.16.0(supports-color@7.2.0)(typescript@5.9.3))(tailwindcss@4.3.3)
+      typescript-eslint:
+        specifier: ^8.0.0
+        version: 8.71.0(eslint@10.12.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
 
 packages:
 

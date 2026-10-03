@@ -3,9 +3,7 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
-  "linked": [
-    ["@develoz/qa", "@develoz/biome-config", "@develoz/eslint-config", "@develoz/prettier-config"]
-  ],
+  "linked": [["@develoz/quality-assurance", "@develoz/quality-assurance-config"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",

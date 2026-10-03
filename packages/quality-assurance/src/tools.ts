@@ -60,7 +60,7 @@ function findPackageJson(resolver: NodeJS.Require, pkg: string): string | null {
 }
 
 /**
- * Resolves a tool binary, preferring the copy bundled with @develoz/qa (so the
+ * Resolves a tool binary, preferring the copy bundled with @develoz/quality-assurance (so the
  * toolchain ships with the package like the Ruby gem's), then the consuming
  * project's own install.
  */
@@ -111,15 +111,6 @@ export const TOOLS = {
   stylelint: { pkg: "stylelint", bin: "stylelint" },
 } as const satisfies Record<string, ToolSpec>;
 
-/** Absolute path to a file shipped inside this package, resolved from its install root. */
-export function bundledFilePath(relative: string): string {
-  return join(selfDir, "..", relative);
-}
-
-/**
- * Resolves a file inside another installed package (e.g. a shared preset),
- * preferring this package's own dependency tree.
- */
 export function resolvePackageFile(pkg: string, relative: string, cwd: string): string | null {
   for (const resolver of [selfRequire, createRequire(join(cwd, "package.json"))]) {
     const pkgPath = findPackageJson(resolver, pkg);

@@ -1,9 +1,20 @@
 {
-  "name": "@develoz/qa",
+  "name": "@develoz/quality-assurance",
   "version": "0.1.0",
   "description": "Opinionated quality-assurance CLI: fail-fast pipeline, run lock, coverage and security gates. Port of rails-quality-assurance.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/develoz-com/js-quality-assurance.git"
+  },
+  "homepage": "https://github.com/develoz-com/js-quality-assurance",
+  "bugs": {
+    "url": "https://github.com/develoz-com/js-quality-assurance/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "qa": "./bin/qa.js"
   },
@@ -18,8 +29,7 @@
   },
   "files": [
     "dist",
-    "bin",
-    "config"
+    "bin"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -35,7 +45,7 @@
   },
   "dependencies": {
     "@biomejs/biome": "^2.5.15",
-    "@develoz/stylelint-config": "workspace:*",
+    "@develoz/quality-assurance-config": "workspace:*",
     "dependency-cruiser": "^18.5.0",
     "jscpd": "^5.4.0",
     "knip": "^6.39.0",
@@ -53,16 +63,5 @@
     "prettier": "^3.9.9",
     "typescript": "^5.9.3",
     "vitest": "^5.0.3"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/develoz-com/js-quality-assurance.git"
-  },
-  "homepage": "https://github.com/develoz-com/js-quality-assurance",
-  "bugs": {
-    "url": "https://github.com/develoz-com/js-quality-assurance/issues"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

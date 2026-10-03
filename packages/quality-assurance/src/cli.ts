@@ -51,7 +51,7 @@ const reporter: PipelineReporter = {
 };
 
 export function defaultLockDir(cwd: string): string {
-  return join(cwd, "node_modules", ".cache", "@develoz", "qa", "run.lock");
+  return join(cwd, "node_modules", ".cache", "@develoz", "quality-assurance", "run.lock");
 }
 
 export async function loadConfig(cwd: string): Promise<QaConfig> {
@@ -147,7 +147,7 @@ function runHooks(
 }
 
 function printHelp(): void {
-  console.log(`@develoz/qa ${packageJson.version}
+  console.log(`@develoz/quality-assurance ${packageJson.version}
 
 Usage: qa <command>
 

@@ -78,4 +78,4 @@ export {
   listStagedFiles,
 } from "./stacks.js";
 export type { ToolCommand, ToolSpec } from "./tools.js";
-export { bundledFilePath, resolveToolBin, TOOLS, toolCommand } from "./tools.js";
+export { resolvePackageFile, resolveToolBin, TOOLS, toolCommand } from "./tools.js";

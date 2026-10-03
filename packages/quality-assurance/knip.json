@@ -1,0 +1,10 @@
+{
+  "ignore": ["test/fixtures/**", "qa.config.mjs"],
+  "ignoreDependencies": [
+    "@develoz/quality-assurance-config",
+    "jscpd",
+    "eslint",
+    "prettier",
+    "stylelint"
+  ]
+}

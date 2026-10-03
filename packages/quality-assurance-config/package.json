@@ -1,0 +1,57 @@
+{
+  "name": "@develoz/quality-assurance-config",
+  "version": "0.1.0",
+  "description": "Shared Biome, ESLint, Prettier and Stylelint presets. Consumable without the quality-assurance CLI.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/develoz-com/js-quality-assurance.git"
+  },
+  "homepage": "https://github.com/develoz-com/js-quality-assurance",
+  "bugs": {
+    "url": "https://github.com/develoz-com/js-quality-assurance/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "biome",
+    "eslint",
+    "prettier",
+    "stylelint"
+  ],
+  "exports": {
+    "./biome/base": "./biome/biome.base.json",
+    "./biome/react": "./biome/biome.react.json",
+    "./biome/next": "./biome/biome.next.json",
+    "./eslint/base": "./eslint/base.js",
+    "./eslint/react": "./eslint/react.js",
+    "./eslint/next": "./eslint/next.js",
+    "./prettier": "./prettier/index.js",
+    "./stylelint/base": "./stylelint/stylelint.base.json",
+    "./stylelint/tailwind": "./stylelint/stylelint.tailwind.json",
+    "./stylelint/scss": "./stylelint/stylelint.scss.json",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "postcss-scss": "^4.0.9",
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-config-standard-scss": "^17.0.0",
+    "stylelint-config-tailwindcss": "^1.0.1"
+  },
+  "peerDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "stylelint": "^17.0.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "eslint-config-next": {
+      "optional": true
+    },
+    "eslint-plugin-react-hooks": {
+      "optional": true
+    }
+  }
+}

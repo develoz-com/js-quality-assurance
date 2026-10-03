@@ -2,9 +2,8 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 /**
- * Generic TypeScript / Node flat config.
- * Type-aware rules use the project service so no per-project `parserOptions.project`
- * list is required.
+ * Generic TypeScript / Node flat config. Type-aware rules use the project
+ * service so no per-project `parserOptions.project` list is required.
  */
 export default tseslint.config(
   js.configs.recommended,

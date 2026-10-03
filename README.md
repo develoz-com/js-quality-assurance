@@ -13,11 +13,8 @@ a generated pre-commit hook. Stack-aware for generic Node, React, and Next.js.
 
 | Package | Role |
 | --- | --- |
-| `@develoz/qa` | CLI, pipeline engine, run lock, adapters, reporters |
-| `@develoz/biome-config` | Default lint and format presets |
-| `@develoz/eslint-config` | Opt-in ESLint flat configs |
-| `@develoz/prettier-config` | Opt-in Prettier preset |
-| `@develoz/stylelint-config` | Opt-in Stylelint presets (base, tailwind, scss) |
+| `@develoz/quality-assurance` | CLI, pipeline engine, run lock, adapters, reporters |
+| `@develoz/quality-assurance-config` | Shared Biome, ESLint, Prettier and Stylelint presets |
 
 ## Development
 
@@ -53,8 +50,8 @@ Requires Node >= 22.12 and pnpm >= 9.
 Configure via `qa.config.mjs`; see `packages/qa/src/config.ts`.
 
 When the project has no `biome.json` of its own, the lint, format and smells
-gates apply the preset shipped in `@develoz/qa/config/biome.default.json`. Add
-your own `biome.json` (or extend `@develoz/biome-config`) to take over.
+gates apply the preset shipped in `@develoz/quality-assurance-config`. Add your
+own `biome.json` (or extend the preset package) to take over.
 
 Install the pre-commit hook:
 
