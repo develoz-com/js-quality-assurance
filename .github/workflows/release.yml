@@ -64,27 +64,34 @@ jobs:
           done
           ls -l "$RUNNER_TEMP/tarballs"
 
-      # Each package attempts its own publish so one failure does not hide the
-      # outcome for the rest, and the job still fails if any did not publish.
+      # Config is published first and the CLI is abandoned if config fails: the
+      # CLI pins an exact config version, so publishing it alone would leave it
+      # uninstallable.
       - name: Publish
         run: |
           set -uo pipefail
-          failed=0
-          for tarball in "$RUNNER_TEMP"/tarballs/*.tgz; do
+
+          publish() {
+            local tarball="$1" manifest name version
             manifest=$(tar -xzOf "$tarball" package/package.json)
             name=$(printf '%s' "$manifest" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).name")
             version=$(printf '%s' "$manifest" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
             if npm view "${name}@${version}" version >/dev/null 2>&1; then
               echo "${name}@${version} already published; skipping"
-              continue
+              return 0
             fi
             echo "::group::Publishing ${name}@${version}"
-            if npm publish "$tarball" --access public --provenance; then
-              echo "PUBLISHED ${name}@${version}"
-            else
-              echo "::error::failed to publish ${name}@${version}"
-              failed=1
-            fi
+            npm publish "$tarball" --access public --provenance
+            local rc=$?
             echo "::endgroup::"
-          done
-          exit "$failed"
+            return $rc
+          }
+
+          config=$(ls "$RUNNER_TEMP"/tarballs/develoz-quality-assurance-config-*.tgz)
+          cli=$(ls "$RUNNER_TEMP"/tarballs/develoz-quality-assurance-[0-9]*.tgz)
+
+          if ! publish "$config"; then
+            echo "::error::config publish failed; not publishing the CLI that pins it"
+            exit 1
+          fi
+          publish "$cli"
