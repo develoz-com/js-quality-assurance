@@ -48,16 +48,46 @@ jobs:
           CI: "true"
         run: node bin/qa.js report
 
-      - name: Upload SARIF to code scanning
-        if: always() && hashFiles('packages/quality-assurance/dist/qa/qa.sarif') != ''
+      # Code scanning requires one SARIF run per category, so each tool is a
+      # separate file and a separate upload.
+      - name: Upload SARIF (lint)
+        if: always() && hashFiles('packages/quality-assurance/dist/qa/biome.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: packages/quality-assurance/dist/qa/qa.sarif
-          category: qa
+          sarif_file: packages/quality-assurance/dist/qa/biome.sarif
+          category: biome
 
-      - name: Upload JUnit test report
-        if: always() && hashFiles('packages/quality-assurance/dist/qa/junit.xml') != ''
+      - name: Upload SARIF (smells)
+        if: always() && hashFiles('packages/quality-assurance/dist/qa/biome-smells.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: packages/quality-assurance/dist/qa/biome-smells.sarif
+          category: biome-smells
+
+      - name: Upload SARIF (duplication)
+        if: always() && hashFiles('packages/quality-assurance/dist/qa/jscpd-report.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: packages/quality-assurance/dist/qa/jscpd-report.sarif
+          category: jscpd
+
+      - name: Upload SARIF (boundaries)
+        if: always() && hashFiles('packages/quality-assurance/dist/qa/dependency-cruiser.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: packages/quality-assurance/dist/qa/dependency-cruiser.sarif
+          category: boundaries
+
+      - name: Upload SARIF (styles)
+        if: always() && hashFiles('packages/quality-assurance/dist/qa/stylelint.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: packages/quality-assurance/dist/qa/stylelint.sarif
+          category: stylelint
+
+      - name: Upload QA artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: junit
-          path: packages/quality-assurance/dist/qa/junit.xml
+          name: qa-artifacts
+          path: packages/quality-assurance/dist/qa

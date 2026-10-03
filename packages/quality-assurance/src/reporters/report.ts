@@ -19,6 +19,15 @@ const SARIF_INPUTS = ["biome.sarif", "biome-smells.sarif", "jscpd-report.sarif"]
 const DEPCRUISER_INPUT = "dependency-cruiser.json";
 const STYLELINT_INPUT = "stylelint.json";
 
+/** Single-run SARIF files, one per tool, for code scanning (one run per category). */
+const PER_TOOL_SARIF = {
+  biome: "biome.sarif",
+  biomeSmells: "biome-smells.sarif",
+  jscpd: "jscpd-report.sarif",
+  boundaries: "dependency-cruiser.sarif",
+  stylelint: "stylelint.sarif",
+} as const;
+
 export interface BuildReportResult {
   outputPath: string;
   resultCount: number;
@@ -33,9 +42,15 @@ function tryReadJson(path: string): unknown {
   }
 }
 
+function writeSarif(directory: string, name: string, log: SarifLog): void {
+  writeFileSync(join(directory, name), `${JSON.stringify(log, null, 2)}\n`, "utf8");
+}
+
 /**
- * Merges the SARIF each gate writes plus the dependency-cruiser JSON (converted
- * to SARIF) into a single file for GitHub code scanning.
+ * Merges the SARIF each gate writes plus the dependency-cruiser and stylelint
+ * JSON (converted to SARIF) into a single file. It also writes one single-run
+ * SARIF file per tool, because code scanning rejects multiple runs sharing a
+ * category.
  */
 export function buildReport(directory: string): BuildReportResult {
   const logs: SarifLog[] = [];
@@ -51,20 +66,26 @@ export function buildReport(directory: string): BuildReportResult {
 
   const depcruise = tryReadJson(join(directory, DEPCRUISER_INPUT));
   if (depcruise !== null) {
-    logs.push(dependencyCruiserToSarif(depcruise as DependencyCruiserReport));
+    const log = dependencyCruiserToSarif(depcruise as DependencyCruiserReport);
+    logs.push(log);
     inputs.push(DEPCRUISER_INPUT);
+    mkdirSync(directory, { recursive: true });
+    writeSarif(directory, PER_TOOL_SARIF.boundaries, log);
   }
 
   const stylelint = tryReadJson(join(directory, STYLELINT_INPUT));
   if (Array.isArray(stylelint)) {
-    logs.push(stylelintToSarif(stylelint as StylelintFileResult[]));
+    const log = stylelintToSarif(stylelint as StylelintFileResult[]);
+    logs.push(log);
     inputs.push(STYLELINT_INPUT);
+    mkdirSync(directory, { recursive: true });
+    writeSarif(directory, PER_TOOL_SARIF.stylelint, log);
   }
 
   const merged = mergeSarif(logs);
   mkdirSync(directory, { recursive: true });
   const outputPath = join(directory, REPORT_FILE);
-  writeFileSync(outputPath, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
+  writeSarif(directory, REPORT_FILE, merged);
 
   return { outputPath, resultCount: countResults(merged), inputs };
 }
