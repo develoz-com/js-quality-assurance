@@ -20,10 +20,19 @@ function tempProject(lcov: string): { dir: string; lcovPath: string } {
 
 function run(dir: string, lcovPath: string) {
   // Exactly what the pipeline spawns: node <selfCliPath> coverage:check <lcov>.
-  return spawnSync(process.execPath, [selfCliPath(), "coverage:check", lcovPath], {
+  const result = spawnSync(process.execPath, [selfCliPath(), "coverage:check", lcovPath], {
     cwd: dir,
     encoding: "utf8",
   });
+  // Surface the child's output in the assertion message; a bare status code
+  // hides why it failed.
+  return Object.assign(result, {
+    toString: () => `status=${result.status} stdout=${result.stdout} stderr=${result.stderr}`,
+  });
+}
+
+function expectOk(result: ReturnType<typeof run>): void {
+  expect(result.status, String(result)).toBe(0);
 }
 
 beforeAll(() => {
@@ -88,7 +97,7 @@ describe("coverage:check, run the way the pipeline runs it", () => {
         "",
       ].join("\n")
     );
-    expect(run(dir, lcovPath).status).toBe(0);
+    expectOk(run(dir, lcovPath));
   });
 
   it("excludes test files from the measured set", () => {
@@ -99,6 +108,6 @@ describe("coverage:check, run the way the pipeline runs it", () => {
         "",
       ].join("\n")
     );
-    expect(run(dir, lcovPath).status).toBe(0);
+    expectOk(run(dir, lcovPath));
   });
 });
