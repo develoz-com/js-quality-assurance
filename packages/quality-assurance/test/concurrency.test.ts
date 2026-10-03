@@ -1,23 +1,14 @@
-import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+// The worker is a separate Node process that consumes the compiled output, which
+// test/global-setup.ts builds once before any file runs.
 const worker = join(packageRoot, "test", "fixtures", "lock-worker.mjs");
-
-beforeAll(() => {
-  // The worker is a separate Node process, so it consumes the compiled output.
-  execFileSync("pnpm", ["exec", "tsc", "-p", "tsconfig.build.json"], {
-    cwd: packageRoot,
-    stdio: "pipe",
-  });
-  if (!existsSync(join(packageRoot, "dist", "pipeline", "lock.js"))) {
-    throw new Error("expected compiled lock at dist/pipeline/lock.js");
-  }
-}, 120_000);
 
 const dirs: string[] = [];
 

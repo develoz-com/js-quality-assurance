@@ -1,12 +1,10 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { join } from "node:path";
+import { afterAll, describe, expect, it } from "vitest";
 import { selfCliPath } from "../src/tools.js";
 
-const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dirs: string[] = [];
 
 function tempProject(lcov: string): { dir: string; lcovPath: string } {
@@ -35,14 +33,8 @@ function expectOk(result: ReturnType<typeof run>): void {
   expect(result.status, String(result)).toBe(0);
 }
 
-beforeAll(() => {
-  // selfCliPath() resolves from the compiled output, so it must be built.
-  execFileSync("pnpm", ["exec", "tsc", "-p", "tsconfig.build.json"], {
-    cwd: packageRoot,
-    stdio: "pipe",
-  });
-}, 120_000);
-
+// selfCliPath() resolves from the compiled output, which test/global-setup.ts
+// builds once before any file runs.
 afterAll(() => {
   for (const dir of dirs.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
