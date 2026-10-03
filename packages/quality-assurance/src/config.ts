@@ -18,6 +18,11 @@ export interface CoverageConfig {
 export interface AuditConfig {
   level?: AuditLevel;
   ignoreAdvisories?: readonly string[];
+  /**
+   * Audit production dependencies only. Default true: a project's dev toolchain
+   * (including this one) should not gate its build on dev-only advisories.
+   */
+  production?: boolean;
 }
 
 export interface BoundariesConfig {

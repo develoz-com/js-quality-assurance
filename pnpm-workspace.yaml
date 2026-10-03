@@ -7,3 +7,9 @@ minimumReleaseAgeExclude:
 
 allowBuilds:
   esbuild: true
+  unrs-resolver: true
+
+# Optional peers (eslint/stylelint presets) must not be auto-installed; consumers
+# opt in, and auto-installing them dragged the stylelint advisory chain into the
+# production tree.
+autoInstallPeers: false

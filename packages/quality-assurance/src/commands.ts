@@ -310,10 +310,23 @@ export function buildSmellsStep(ctx: BuildContext): PipelineStep[] {
   ];
 }
 
-function auditArgs(pm: PackageManagerKind, level: string): string[] {
+function auditArgs(pm: PackageManagerKind, level: string, production: boolean): string[] {
   // Yarn classic returns a severity bitmask from `audit` and does not accept
-  // --audit-level, so it is run bare and interpreted by the package manager.
-  return pm === "yarn" ? ["audit"] : ["audit", "--audit-level", level];
+  // --audit-level, so it is run with a group filter only.
+  if (pm === "yarn") {
+    return production ? ["audit", "--groups", "dependencies"] : ["audit"];
+  }
+
+  const args = ["audit", "--audit-level", level];
+  if (production) {
+    if (pm === "npm") {
+      args.push("--omit=dev");
+    } else if (pm === "pnpm") {
+      args.push("--prod");
+    }
+    // bun audit has no production-only flag; it always audits everything.
+  }
+  return args;
 }
 
 export function buildAuditStep(ctx: BuildContext): PipelineStep[] {
@@ -321,11 +334,12 @@ export function buildAuditStep(ctx: BuildContext): PipelineStep[] {
     return [];
   }
   const level = ctx.config.audit?.level ?? "high";
+  const production = ctx.config.audit?.production ?? true;
   return [
     {
       name: "audit",
       command: ctx.project.packageManager,
-      args: auditArgs(ctx.project.packageManager, level),
+      args: auditArgs(ctx.project.packageManager, level, production),
       // Run where the lockfile lives, which in a monorepo is the workspace root.
       cwd: ctx.project.root,
     },

@@ -203,10 +203,10 @@ describe("buildBoundariesStep", () => {
 });
 
 describe("buildAuditStep", () => {
-  it("builds npm audit at high by default", () => {
+  it("audits npm production dependencies at high by default", () => {
     const steps = buildAuditStep(makeContext());
     expect(steps[0]?.command).toBe("npm");
-    expect(steps[0]?.args).toEqual(["audit", "--audit-level", "high"]);
+    expect(steps[0]?.args).toEqual(["audit", "--audit-level", "high", "--omit=dev"]);
   });
 
   it("honours package manager and level", () => {
@@ -217,14 +217,26 @@ describe("buildAuditStep", () => {
       })
     );
     expect(steps[0]?.command).toBe("pnpm");
-    expect(steps[0]?.args).toEqual(["audit", "--audit-level", "critical"]);
+    expect(steps[0]?.args).toEqual(["audit", "--audit-level", "critical", "--prod"]);
   });
 
-  it("runs yarn audit bare", () => {
+  it("filters yarn audit to dependency groups", () => {
     const steps = buildAuditStep(
       makeContext({ project: { ...defaultProject, packageManager: "yarn" } })
     );
-    expect(steps[0]?.args).toEqual(["audit"]);
+    expect(steps[0]?.args).toEqual(["audit", "--groups", "dependencies"]);
+  });
+
+  it("has no production flag for bun audit", () => {
+    const steps = buildAuditStep(
+      makeContext({ project: { ...defaultProject, packageManager: "bun" } })
+    );
+    expect(steps[0]?.args).toEqual(["audit", "--audit-level", "high"]);
+  });
+
+  it("audits everything when production is false", () => {
+    const steps = buildAuditStep(makeContext({ config: { audit: { production: false } } }));
+    expect(steps[0]?.args).toEqual(["audit", "--audit-level", "high"]);
   });
 
   it("skips without a package.json", () => {

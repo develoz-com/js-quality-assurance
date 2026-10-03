@@ -42,7 +42,7 @@ Requires Node >= 22.12 and pnpm >= 9.
 | `qa duplication` | jscpd | fails on any duplication by default |
 | `qa smells` | Biome lint rules (project-configured) | source only, warnings fail |
 | `qa styles` | stylelint (standard + Tailwind/SCSS) | opt-in; runs when Tailwind, SCSS or a stylelint config is present |
-| `qa audit` | npm/pnpm/yarn/bun audit | severity gate, default high |
+| `qa audit` | npm/pnpm/yarn/bun audit | severity high; production deps only by default |
 | `qa ci` | all of the above | fail-fast, run-locked |
 | `qa report` | merges SARIF + dependency-cruiser JSON | writes `dist/qa/qa.sarif` |
 | `qa pre-commit` | staged gates for the hook | used by `qa hooks install` |
@@ -52,6 +52,12 @@ Configure via `qa.config.mjs`; see `packages/qa/src/config.ts`.
 When the project has no `biome.json` of its own, the lint, format and smells
 gates apply the preset shipped in `@develoz/quality-assurance-config`. Add your
 own `biome.json` (or extend the preset package) to take over.
+
+The ESLint and Stylelint presets are opt-in and their upstream packages are
+optional peers, so they are not installed for you. To use `qa styles`, install
+`stylelint` plus the relevant `stylelint-config-*` in your project. Audit
+inspects production dependencies only by default; set
+`audit: { production: false }` in `qa.config.mjs` to audit everything.
 
 Install the pre-commit hook:
 

@@ -12,6 +12,9 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v7
 
@@ -26,11 +29,35 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm --recursive run build
+
       - name: Self-lint with Biome
         run: pnpm exec biome check .
 
-      - name: Typecheck
-        run: pnpm --recursive run typecheck
+      # Dogfood the CLI on this repo. Writes SARIF/JUnit into dist/qa.
+      - name: qa ci
+        working-directory: packages/quality-assurance
+        env:
+          CI: "true"
+        run: node bin/qa.js ci
 
-      - name: Unit & Integration Tests
-        run: pnpm --recursive run test
+      - name: Merge QA artifacts
+        if: always()
+        working-directory: packages/quality-assurance
+        env:
+          CI: "true"
+        run: node bin/qa.js report
+
+      - name: Upload SARIF to code scanning
+        if: always() && hashFiles('packages/quality-assurance/dist/qa/qa.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: packages/quality-assurance/dist/qa/qa.sarif
+          category: qa
+
+      - name: Upload JUnit test report
+        if: always() && hashFiles('packages/quality-assurance/dist/qa/junit.xml') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit
+          path: packages/quality-assurance/dist/qa/junit.xml

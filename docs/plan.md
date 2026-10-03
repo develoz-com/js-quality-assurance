@@ -117,6 +117,14 @@ or explicitly via `report.enabled`.
 | `dependency-cruiser.json` | `qa boundaries:report` | `--output-type json --output-to …` |
 | `junit.xml` | `qa coverage` | `--reporter=junit --outputFile.junit=…` |
 
+CI runs `qa ci`, then `qa report` to merge, then uploads `qa.sarif` to code
+scanning and `junit.xml` as an artifact.
+
+Audit defaults to production dependencies only (`--prod` / `--omit=dev`). The
+ESLint and Stylelint upstream packages are optional peers, so neither the
+toolchain nor an unfixable upstream advisory (e.g. `braces` via `stylelint`)
+gates a consumer's build.
+
 `qa report` merges the SARIF files and converts the dependency-cruiser and
 stylelint JSON into `qa.sarif` for GitHub code scanning. Knip is not included:
 it writes SARIF to stdout only and the pipeline does not redirect.
