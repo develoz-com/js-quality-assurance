@@ -1,5 +1,11 @@
 # @develoz/quality-assurance-config
 
+## 0.2.2
+
+### Patch Changes
+
+- Release via npm trusted publishing (OIDC) with provenance, replacing the bootstrap token.
+
 ## 0.2.1
 
 ### Patch Changes
