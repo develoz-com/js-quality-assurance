@@ -254,6 +254,16 @@ export function buildBoundariesStep(ctx: BuildContext): PipelineStep[] {
   return [report, gate];
 }
 
+const DUPLICATION_FORMATS = ["javascript", "typescript", "jsx", "tsx"] as const;
+
+function duplicationPaths(ctx: BuildContext): string[] {
+  const configured = ctx.config.duplication?.paths;
+  if (configured && configured.length > 0) {
+    return [...configured];
+  }
+  return [existsSync(join(ctx.cwd, "src")) ? "src" : "."];
+}
+
 export function buildDuplicationStep(ctx: BuildContext): PipelineStep[] {
   const jscpd = toolCommand(TOOLS.jscpd, ctx.cwd);
   if (!jscpd) {
@@ -276,6 +286,10 @@ export function buildDuplicationStep(ctx: BuildContext): PipelineStep[] {
   if (config?.ignore && config.ignore.length > 0) {
     args.push("--ignore", config.ignore.join(","));
   }
+  // Code formats only: lockfiles and generated JSON repeat by nature and would
+  // fail every project's first run.
+  args.push("--format", (config?.formats ?? DUPLICATION_FORMATS).join(","));
+  args.push(...duplicationPaths(ctx));
   return [step("duplication", jscpd, args)];
 }
 

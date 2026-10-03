@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -136,6 +136,42 @@ describe("buildDuplicationStep", () => {
     expect(args).toContain("--threshold");
     expect(args).toContain("0");
     expect(args).toContain("console");
+  });
+
+  it("scans code formats only, so lockfiles and generated JSON never count", () => {
+    const args = buildDuplicationStep(makeContext())[0]?.args ?? [];
+    const index = args.indexOf("--format");
+    expect(index).toBeGreaterThan(-1);
+    expect(args[index + 1]).toBe("javascript,typescript,jsx,tsx");
+    expect(args[index + 1]).not.toContain("json");
+  });
+
+  it("scans src when it exists, otherwise the project root", () => {
+    const withSrc = mkdtempSync(join(tmpdir(), "qa-dup-src-"));
+    const withoutSrc = mkdtempSync(join(tmpdir(), "qa-dup-nosrc-"));
+    try {
+      mkdirSync(join(withSrc, "src"));
+      const scoped = buildDuplicationStep(
+        makeContext({ cwd: withSrc, project: { ...defaultProject, root: withSrc } })
+      )[0]?.args;
+      const rooted = buildDuplicationStep(
+        makeContext({ cwd: withoutSrc, project: { ...defaultProject, root: withoutSrc } })
+      )[0]?.args;
+      expect(scoped?.at(-1)).toBe("src");
+      expect(rooted?.at(-1)).toBe(".");
+    } finally {
+      rmSync(withSrc, { recursive: true, force: true });
+      rmSync(withoutSrc, { recursive: true, force: true });
+    }
+  });
+
+  it("honours explicit paths and formats", () => {
+    const args =
+      buildDuplicationStep(
+        makeContext({ config: { duplication: { paths: ["lib", "app"], formats: ["typescript"] } } })
+      )[0]?.args ?? [];
+    expect(args.slice(-2)).toEqual(["lib", "app"]);
+    expect(args[args.indexOf("--format") + 1]).toBe("typescript");
   });
 
   it("adds sarif and an output directory when reporting is enabled", () => {

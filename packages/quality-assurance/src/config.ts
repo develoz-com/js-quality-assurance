@@ -40,6 +40,14 @@ export interface DuplicationConfig {
   threshold?: number;
   minTokens?: number;
   ignore?: readonly string[];
+  /**
+   * Paths to scan. Default: `src` when it exists, else the project root.
+   * Scanning the root also reads lockfiles and generated JSON, which repeat by
+   * nature, so prefer a source directory.
+   */
+  paths?: readonly string[];
+  /** Languages to scan. Default: JavaScript and TypeScript only. */
+  formats?: readonly string[];
 }
 
 export interface SmellsConfig {

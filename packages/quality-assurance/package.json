@@ -1,6 +1,6 @@
 {
   "name": "@develoz/quality-assurance",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Opinionated quality-assurance CLI: fail-fast pipeline, run lock, coverage and security gates. Port of rails-quality-assurance.",
   "type": "module",
   "license": "MIT",
