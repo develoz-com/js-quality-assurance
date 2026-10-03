@@ -64,12 +64,13 @@ jobs:
           done
           ls -l "$RUNNER_TEMP/tarballs"
 
-      # The config package is published first because the CLI depends on it.
+      # Each package attempts its own publish so one failure does not hide the
+      # outcome for the rest, and the job still fails if any did not publish.
       - name: Publish
         run: |
-          set -euo pipefail
-          for tarball in "$RUNNER_TEMP"/tarballs/develoz-quality-assurance-config-*.tgz \
-                         "$RUNNER_TEMP"/tarballs/develoz-quality-assurance-[0-9]*.tgz; do
+          set -uo pipefail
+          failed=0
+          for tarball in "$RUNNER_TEMP"/tarballs/*.tgz; do
             manifest=$(tar -xzOf "$tarball" package/package.json)
             name=$(printf '%s' "$manifest" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).name")
             version=$(printf '%s' "$manifest" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
@@ -77,6 +78,13 @@ jobs:
               echo "${name}@${version} already published; skipping"
               continue
             fi
-            echo "Publishing ${name}@${version}"
-            npm publish "$tarball" --access public --provenance
+            echo "::group::Publishing ${name}@${version}"
+            if npm publish "$tarball" --access public --provenance; then
+              echo "PUBLISHED ${name}@${version}"
+            else
+              echo "::error::failed to publish ${name}@${version}"
+              failed=1
+            fi
+            echo "::endgroup::"
           done
+          exit "$failed"
