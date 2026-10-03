@@ -33,6 +33,7 @@ const defaultProject: ProjectInfo = {
   packageManager: "npm",
   hasPackageJson: true,
   hasTypeScript: true,
+  hasJsTests: true,
   hasTailwind: false,
   hasScss: false,
   hasStylelintConfig: false,
@@ -99,6 +100,12 @@ describe("buildFormatSteps", () => {
 describe("buildTypecheckStep and buildTestStep", () => {
   it("runs tsc --noEmit", () => {
     expect(buildTypecheckStep(makeContext())[0]?.args).toContain("--noEmit");
+  });
+
+  it("skips typecheck without TypeScript", () => {
+    expect(
+      buildTypecheckStep(makeContext({ project: { ...defaultProject, hasTypeScript: false } }))
+    ).toEqual([]);
   });
 
   it("runs vitest without coverage", () => {
@@ -311,11 +318,13 @@ describe("buildAuditStep", () => {
     expect(steps[0]?.args).toEqual(["audit", "--audit-level", "critical", "--prod"]);
   });
 
-  it("filters yarn audit to dependency groups", () => {
+  it("masks yarn's audit exit code to high and critical", () => {
     const steps = buildAuditStep(
       makeContext({ project: { ...defaultProject, packageManager: "yarn" } })
     );
-    expect(steps[0]?.args).toEqual(["audit", "--groups", "dependencies"]);
+    expect(steps[0]?.command).toBe("sh");
+    expect(steps[0]?.args?.[1]).toContain("yarn audit --groups dependencies");
+    expect(steps[0]?.args?.[1]).toContain("[ $((status & 24)) -eq 0 ]");
   });
 
   it("has no production flag for bun audit", () => {
@@ -335,7 +344,6 @@ describe("buildAuditStep", () => {
       buildAuditStep(makeContext({ project: { ...defaultProject, hasPackageJson: false } }))
     ).toEqual([]);
   });
-
   it("runs at the workspace root, not the package directory", () => {
     const steps = buildAuditStep(
       makeContext({ project: { ...defaultProject, root: "/workspace/root" } })
@@ -348,6 +356,7 @@ describe("buildCiSteps", () => {
   it("orders the gates and omits boundaries without a rules file", () => {
     const dir = mkdtempSync(join(tmpdir(), "qa-ci-order-"));
     try {
+      writeFileSync(join(dir, "knip.json"), "{}");
       const ctx = makeContext({ cwd: dir, project: { ...defaultProject, root: dir } });
       expect(buildCiSteps(ctx).map((step) => step.name)).toEqual([
         "audit",
@@ -361,6 +370,21 @@ describe("buildCiSteps", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("omits deadcode without a knip config", () => {
+    const dir = mkdtempSync(join(tmpdir(), "qa-ci-no-knip-"));
+    try {
+      const ctx = makeContext({ cwd: dir, project: { ...defaultProject, root: dir } });
+      expect(buildCiSteps(ctx).map((step) => step.name)).not.toContain("deadcode");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("omits coverage when the project has no JS tests", () => {
+    const ctx = makeContext({ project: { ...defaultProject, hasJsTests: false } });
+    expect(buildCiSteps(ctx).map((step) => step.name)).not.toContain("coverage");
   });
 });
 
@@ -488,11 +512,22 @@ describe("buildStylesStep", () => {
       });
       const args = buildStylesStep(ctx)[0]?.args ?? [];
       expect(args.some((arg) => arg.includes("stylelint/stylelint.tailwind.json"))).toBe(true);
+      expect(args.some((arg) => arg.startsWith("--config-basedir="))).toBe(true);
       expect(args).toContain("--custom-syntax=postcss-scss");
       expect(args).toContain("**/*.scss");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("does not override the basedir for an explicit config path", () => {
+    const ctx = makeContext({
+      project: { ...defaultProject, hasTailwind: true },
+      config: { styles: { configPath: "/tmp/own-stylelint.json" } },
+    });
+    const args = buildStylesStep(ctx)[0]?.args ?? [];
+    expect(args).toContain("--config=/tmp/own-stylelint.json");
+    expect(args.some((arg) => arg.startsWith("--config-basedir="))).toBe(false);
   });
 
   it("honours styles.enabled=false", () => {

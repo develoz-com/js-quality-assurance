@@ -48,6 +48,8 @@ export interface BoundariesConfig {
 }
 
 export interface DeadcodeConfig {
+  /** Force on/off. Default is auto-detect: runs only when a knip config exists. */
+  enabled?: boolean;
   strict?: boolean;
   ignore?: readonly string[];
 }

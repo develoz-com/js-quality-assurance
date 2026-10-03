@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { QaConfig, TestRunnerKind } from "./config.js";
 import type { ResolvedCoverage } from "./coverage.js";
 import type { PipelineStep } from "./pipeline/types.js";
@@ -71,6 +71,9 @@ function biomeSarifArgs(ctx: BuildContext, name: string): string[] {
 }
 
 export function buildTypecheckStep(ctx: BuildContext): PipelineStep[] {
+  if (!ctx.project.hasTypeScript) {
+    return [];
+  }
   const tsc = toolCommand(TOOLS.tsc, ctx.cwd);
   if (!tsc) {
     return [];
@@ -244,7 +247,33 @@ export function buildCoverageStep(ctx: BuildContext): PipelineStep[] {
   ];
 }
 
+const KNIP_CONFIG_FILES = [
+  "knip.json",
+  "knip.jsonc",
+  "knip.ts",
+  "knip.js",
+  "knip.config.ts",
+  "knip.config.js",
+] as const;
+
+/**
+ * knip needs project entry-point configuration to be meaningful; without a
+ * knip config it flags every file as unused. Auto-gate on that config so Rails
+ * importmap apps (no bundler, no entry graph) are not swept in.
+ */
+function knipApplicable(ctx: BuildContext): boolean {
+  if (ctx.config.deadcode?.enabled !== undefined) {
+    return ctx.config.deadcode.enabled;
+  }
+  return [ctx.cwd, ctx.project.root].some((dir) =>
+    KNIP_CONFIG_FILES.some((name) => existsSync(join(dir, name)))
+  );
+}
+
 export function buildDeadcodeStep(ctx: BuildContext): PipelineStep[] {
+  if (!knipApplicable(ctx)) {
+    return [];
+  }
   const knip = toolCommand(TOOLS.knip, ctx.cwd);
   if (!knip) {
     return [];
@@ -314,7 +343,15 @@ function duplicationPaths(ctx: BuildContext): string[] {
   if (configured && configured.length > 0) {
     return [...configured];
   }
-  return [existsSync(join(ctx.cwd, "src")) ? "src" : "."];
+  if (existsSync(join(ctx.cwd, "src"))) {
+    return ["src"];
+  }
+  // Rails keeps its JavaScript under app/javascript; scanning the repo root
+  // would drag in vendored and generated assets.
+  if (existsSync(join(ctx.cwd, "app/javascript"))) {
+    return ["app/javascript"];
+  }
+  return ["."];
 }
 
 export function buildDuplicationStep(ctx: BuildContext): PipelineStep[] {
@@ -378,12 +415,6 @@ export function buildSmellsStep(ctx: BuildContext): PipelineStep[] {
 }
 
 function auditArgs(pm: PackageManagerKind, level: string, production: boolean): string[] {
-  // Yarn classic returns a severity bitmask from `audit` and does not accept
-  // --audit-level, so it is run with a group filter only.
-  if (pm === "yarn") {
-    return production ? ["audit", "--groups", "dependencies"] : ["audit"];
-  }
-
   const args = ["audit", "--audit-level", level];
   if (production) {
     if (pm === "npm") {
@@ -396,12 +427,30 @@ function auditArgs(pm: PackageManagerKind, level: string, production: boolean): 
   return args;
 }
 
+/**
+ * Yarn classic returns a severity bitmask from `audit` and does not accept
+ * --audit-level, so it is run under a shell that masks to high|critical
+ * (info 1, low 2, moderate 4, high 8, critical 16).
+ */
+function yarnAuditStep(cwd: string, production: boolean): PipelineStep {
+  const groups = production ? " --groups dependencies" : "";
+  return {
+    name: "audit",
+    command: "sh",
+    args: ["-c", `yarn audit${groups}; status=$?; [ $((status & 24)) -eq 0 ]`],
+    cwd,
+  };
+}
+
 export function buildAuditStep(ctx: BuildContext): PipelineStep[] {
   if (!ctx.project.hasPackageJson) {
     return [];
   }
   const level = ctx.config.audit?.level ?? "high";
   const production = ctx.config.audit?.production ?? true;
+  if (ctx.project.packageManager === "yarn") {
+    return [yarnAuditStep(ctx.project.root, production)];
+  }
   return [
     {
       name: "audit",
@@ -450,6 +499,11 @@ export function buildStylesStep(ctx: BuildContext): PipelineStep[] {
   const args = ["--allow-empty-input"];
   if (configPath) {
     args.push(`--config=${configPath}`);
+    // Shipped presets live inside this package's tree; resolve their `extends`
+    // from there so a project without its own node_modules can still lint.
+    if (!ctx.config.styles?.configPath) {
+      args.push(`--config-basedir=${dirname(configPath)}`);
+    }
   }
   if (hasScss) {
     args.push("--custom-syntax=postcss-scss");
@@ -472,7 +526,7 @@ export function buildCiSteps(ctx: BuildContext): PipelineStep[] {
     ...buildDuplicationStep(ctx),
     ...buildSmellsStep(ctx),
     ...buildStylesStep(ctx),
-    ...buildCoverageStep(ctx),
+    ...(ctx.project.hasJsTests ? buildCoverageStep(ctx) : []),
   ];
 }
 

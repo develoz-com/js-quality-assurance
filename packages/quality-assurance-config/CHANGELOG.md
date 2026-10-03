@@ -1,5 +1,19 @@
 # @develoz/quality-assurance-config
 
+## 0.3.0
+
+### Minor Changes
+
+- Align the shared presets with the Rails defaults they were ported from, and support Rails apps.
+  
+  - `biome/base` now uses lineWidth 120 and `semicolons: "asNeeded"`, adds `assist.organizeImports`, and matches the Rails linter severities (unused imports/variables warn; `useIterableCallbackReturn`, `noAssignInExpressions` and `noDocumentCookie` off).
+  - `stylelint/tailwind` carries the Tailwind at-rule/function relaxations and rule overrides from the Rails preset, so `@apply`, `@tailwind`, `theme()` and friends are accepted.
+  - Bundle `stylelint`, the `stylelint-config-*` presets and `postcss-scss` so `qa styles` works with no app-side install.
+  - Detect Tailwind from `tailwindcss-rails` (Gemfile or `app/assets/tailwind`) so Rails apps enable `qa styles`.
+  - Auto-gate `qa deadcode` on a knip config; without one knip flags every file. Default `qa duplication` to `app/javascript` when it exists.
+  - Mask Yarn classic's `audit` severity bitmask to high|critical, matching the Rails gem instead of failing on low/moderate advisories.
+  - Gate `qa typecheck` on a `tsconfig.json` and `qa ci`'s coverage step on actual JS test files. npm auto-installs the `typescript` and `vitest` peers, so tool presence alone ran `tsc` against projects with no TypeScript and vitest against projects with no tests.
+
 ## 0.2.2
 
 ### Patch Changes

@@ -13,6 +13,7 @@ export interface ProjectInfo {
   packageManager: PackageManagerKind;
   hasPackageJson: boolean;
   hasTypeScript: boolean;
+  hasJsTests: boolean;
   hasTailwind: boolean;
   hasScss: boolean;
   hasStylelintConfig: boolean;
@@ -28,6 +29,25 @@ function readPackageJson(cwd: string): Record<string, unknown> | null {
     return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Rails apps pull Tailwind from the `tailwindcss-rails` gem rather than a
+ * package.json dependency, so the npm dependency check alone misses them.
+ */
+function railsUsesTailwind(dir: string): boolean {
+  if (existsSync(join(dir, "app/assets/tailwind"))) {
+    return true;
+  }
+  const gemfile = join(dir, "Gemfile");
+  if (!existsSync(gemfile)) {
+    return false;
+  }
+  try {
+    return /^\s*gem\s+["']tailwindcss-rails["']/m.test(readFileSync(gemfile, "utf8"));
+  } catch {
+    return false;
   }
 }
 
@@ -91,7 +111,8 @@ export function detectProject(cwd: string): ProjectInfo {
     hasPackageJson: rootPkg !== null,
     hasTypeScript:
       existsSync(join(cwd, "tsconfig.json")) || existsSync(join(root, "tsconfig.json")),
-    hasTailwind: deps.has("tailwindcss"),
+    hasJsTests: hasJsTests(cwd) || hasJsTests(root),
+    hasTailwind: deps.has("tailwindcss") || railsUsesTailwind(cwd) || railsUsesTailwind(root),
     hasScss: deps.has("sass") || deps.has("node-sass") || deps.has("postcss-scss"),
     hasStylelintConfig: hasStylelintConfig(cwd) || hasStylelintConfig(root),
     testRunner: detectTestRunner(cwd, deps),
@@ -103,6 +124,28 @@ const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 // An actual import or require of the module, not any mention of the string.
 const BUN_TEST_IMPORT =
   /^\s*(?:import\b[^\n]*\bfrom\s*|import\s*|(?:const|let|var)\b[^\n]*=\s*require\()\s*["']bun:test["']/m;
+
+/**
+ * Whether the project has JavaScript/TypeScript tests at all. Vitest ships as
+ * an auto-installed peer, so tool presence alone cannot gate the test and
+ * coverage steps.
+ */
+function hasJsTests(dir: string): boolean {
+  for (const name of TEST_DIRS) {
+    const folder = join(dir, name);
+    if (!existsSync(folder)) {
+      continue;
+    }
+    try {
+      if (readdirSync(folder).some((entry) => TEST_FILE.test(entry))) {
+        return true;
+      }
+    } catch {
+      // An unreadable test directory cannot vote either way.
+    }
+  }
+  return false;
+}
 
 function usesBunTest(dir: string): boolean {
   for (const name of TEST_DIRS) {

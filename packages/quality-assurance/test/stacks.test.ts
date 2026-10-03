@@ -90,6 +90,31 @@ describe("detectProject", () => {
     expect(project.packageManager).toBe("pnpm");
     expect(project.hasPackageJson).toBe(true);
   });
+
+  it("detects Tailwind from the tailwindcss-rails gem without a package.json", () => {
+    const dir = fixture();
+    writeFileSync(join(dir, "Gemfile"), 'gem "tailwindcss-rails"\n');
+    const project = detectProject(dir);
+    expect(project.hasTailwind).toBe(true);
+    expect(project.hasPackageJson).toBe(false);
+  });
+
+  it("detects Tailwind from app/assets/tailwind", () => {
+    const dir = fixture();
+    mkdirSync(join(dir, "app", "assets", "tailwind"), { recursive: true });
+    expect(detectProject(dir).hasTailwind).toBe(true);
+  });
+
+  it("reports JS tests from a test directory", () => {
+    const dir = fixture();
+    mkdirSync(join(dir, "test"), { recursive: true });
+    writeFileSync(join(dir, "test", "app.test.ts"), "");
+    expect(detectProject(dir).hasJsTests).toBe(true);
+  });
+
+  it("reports no JS tests for a plain package", () => {
+    expect(detectProject(fixture()).hasJsTests).toBe(false);
+  });
 });
 
 describe("test runner detection", () => {

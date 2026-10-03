@@ -1,6 +1,6 @@
 {
   "name": "@develoz/quality-assurance",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Opinionated quality-assurance CLI: fail-fast pipeline, run lock, coverage and security gates. Port of rails-quality-assurance.",
   "type": "module",
   "license": "MIT",
@@ -48,18 +48,14 @@
     "@develoz/quality-assurance-config": "workspace:*",
     "dependency-cruiser": "^18.5.0",
     "jscpd": "^5.4.0",
-    "knip": "^6.39.0"
+    "knip": "^6.39.0",
+    "postcss-scss": "^4.0.9",
+    "stylelint": "^17.16.0"
   },
   "peerDependencies": {
     "@vitest/coverage-v8": "^5.0.0",
-    "stylelint": "^17.0.0",
     "typescript": "^5.9.0",
     "vitest": "^5.0.0"
-  },
-  "peerDependenciesMeta": {
-    "stylelint": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@types/node": "^24.19.1",
