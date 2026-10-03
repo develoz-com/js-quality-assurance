@@ -23,5 +23,16 @@
   },
   "peerDependencies": {
     "stylelint": "^17.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/develoz-com/js-quality-assurance.git"
+  },
+  "homepage": "https://github.com/develoz-com/js-quality-assurance",
+  "bugs": {
+    "url": "https://github.com/develoz-com/js-quality-assurance/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
