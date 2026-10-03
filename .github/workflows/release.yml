@@ -1,20 +1,31 @@
-# Publishing is manual until the @develoz npm scope has trusted publishing
-# configured. It is gated behind workflow_dispatch so normal pushes to main do
-# not attempt a publish. See docs/plan.md (M5).
+# Publishes to npm through trusted publishing (OIDC). No NPM_TOKEN is used.
+#
+# Setup, once per package on npmjs.com (Settings -> Trusted Publisher -> GitHub Actions):
+#   organization: develoz-com   repository: js-quality-assurance
+#   workflow: release.yml        allowed action: npm publish
+#
+# `pnpm pack` is used to build tarballs because it rewrites `workspace:*`
+# dependency ranges to real versions; `npm pack` leaves them intact, which
+# would publish an uninstallable package. The tarballs are then published with
+# npm, which performs the OIDC exchange.
 name: Release
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
   id-token: write
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -27,20 +38,45 @@ jobs:
         with:
           node-version: "24.x"
           registry-url: "https://registry.npmjs.org"
-          cache: "pnpm"
+          package-manager-cache: false
+
+      # Trusted publishing needs npm >= 11.5.1. Pin the 11.x line: npm 12 breaks
+      # --provenance.
+      - name: Pin npm
+        run: |
+          npm install -g "npm@^11.5.1"
+          npm --version
 
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm --recursive run build
 
-      - name: Create Release Pull Request or Publish
-        id: changesets
-        uses: changesets/action@v2
-        with:
-          publish: pnpm changeset publish
-          version: pnpm changeset version
-          title: "Version Packages"
-          commit: "Version Packages"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
+      - name: Verify
+        run: |
+          pnpm --recursive run typecheck
+          pnpm --recursive run test
+
+      - name: Pack
+        run: |
+          mkdir -p "$RUNNER_TEMP/tarballs"
+          for dir in packages/quality-assurance-config packages/quality-assurance; do
+            (cd "$dir" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
+          done
+          ls -l "$RUNNER_TEMP/tarballs"
+
+      # The config package is published first because the CLI depends on it.
+      - name: Publish
+        run: |
+          set -euo pipefail
+          for tarball in "$RUNNER_TEMP"/tarballs/develoz-quality-assurance-config-*.tgz \
+                         "$RUNNER_TEMP"/tarballs/develoz-quality-assurance-[0-9]*.tgz; do
+            manifest=$(tar -xzOf "$tarball" package/package.json)
+            name=$(printf '%s' "$manifest" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).name")
+            version=$(printf '%s' "$manifest" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "${name}@${version} already published; skipping"
+              continue
+            fi
+            echo "Publishing ${name}@${version}"
+            npm publish "$tarball" --access public --provenance
+          done
