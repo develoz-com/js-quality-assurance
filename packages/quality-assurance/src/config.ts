@@ -34,6 +34,10 @@ export interface CoverageConfig {
 
 export interface AuditConfig {
   level?: AuditLevel;
+  /**
+   * GitHub advisory IDs to ignore. Only pnpm exposes an ignore flag; npm, yarn
+   * classic and bun have no equivalent, so this is a pnpm-only escape hatch.
+   */
   ignoreAdvisories?: readonly string[];
   /**
    * Audit production dependencies only. Default true: a project's dev toolchain

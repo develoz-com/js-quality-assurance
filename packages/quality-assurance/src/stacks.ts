@@ -113,7 +113,9 @@ export function detectProject(cwd: string): ProjectInfo {
       existsSync(join(cwd, "tsconfig.json")) || existsSync(join(root, "tsconfig.json")),
     hasJsTests: hasJsTests(cwd) || hasJsTests(root),
     hasTailwind: deps.has("tailwindcss") || railsUsesTailwind(cwd) || railsUsesTailwind(root),
-    hasScss: deps.has("sass") || deps.has("node-sass") || deps.has("postcss-scss"),
+    // `postcss-scss` is bundled as a linter tool, so it is not evidence of SCSS
+    // source. Only a real SCSS compiler dependency marks the project as SCSS.
+    hasScss: deps.has("sass") || deps.has("node-sass"),
     hasStylelintConfig: hasStylelintConfig(cwd) || hasStylelintConfig(root),
     testRunner: detectTestRunner(cwd, deps),
   };

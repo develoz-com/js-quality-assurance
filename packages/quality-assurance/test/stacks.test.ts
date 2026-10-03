@@ -115,6 +115,16 @@ describe("detectProject", () => {
   it("reports no JS tests for a plain package", () => {
     expect(detectProject(fixture()).hasJsTests).toBe(false);
   });
+
+  it("does not treat a postcss-scss dependency as SCSS", () => {
+    const dir = fixture({ devDependencies: { "postcss-scss": "^4.0.9" } });
+    expect(detectProject(dir).hasScss).toBe(false);
+  });
+
+  it("detects SCSS from a sass dependency", () => {
+    const dir = fixture({ devDependencies: { sass: "^1.80.0" } });
+    expect(detectProject(dir).hasScss).toBe(true);
+  });
 });
 
 describe("test runner detection", () => {

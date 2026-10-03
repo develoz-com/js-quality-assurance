@@ -318,6 +318,23 @@ describe("buildAuditStep", () => {
     expect(steps[0]?.args).toEqual(["audit", "--audit-level", "critical", "--prod"]);
   });
 
+  it("passes ignored advisories to pnpm", () => {
+    const steps = buildAuditStep(
+      makeContext({
+        project: { ...defaultProject, packageManager: "pnpm" },
+        config: { audit: { ignoreAdvisories: ["GHSA-aaaa-bbbb-cccc", "GHSA-dddd-eeee-ffff"] } },
+      })
+    );
+    expect(steps[0]?.args).toEqual([
+      "audit",
+      "--audit-level",
+      "high",
+      "--prod",
+      "--ignore=GHSA-aaaa-bbbb-cccc",
+      "--ignore=GHSA-dddd-eeee-ffff",
+    ]);
+  });
+
   it("masks yarn's audit exit code to high and critical", () => {
     const steps = buildAuditStep(
       makeContext({ project: { ...defaultProject, packageManager: "yarn" } })

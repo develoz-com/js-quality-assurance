@@ -10,4 +10,11 @@ export default {
   duplication: {
     threshold: 1,
   },
+  // The CLI bundles stylelint so `qa styles` works with no app install, which
+  // pulls `braces` (GHSA-vfj7-8cjw-p6xm) into this workspace's production audit
+  // with no upstream fix. Consumers install the CLI as a devDependency, so
+  // `qa audit --prod` excludes it there and this ignore is self-only.
+  audit: {
+    ignoreAdvisories: ["GHSA-vfj7-8cjw-p6xm"],
+  },
 };

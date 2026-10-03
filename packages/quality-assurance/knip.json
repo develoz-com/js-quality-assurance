@@ -4,6 +4,7 @@
     "@develoz/quality-assurance-config",
     "jscpd",
     "eslint",
+    "postcss-scss",
     "prettier",
     "stylelint"
   ]

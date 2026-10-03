@@ -414,7 +414,12 @@ export function buildSmellsStep(ctx: BuildContext): PipelineStep[] {
   ];
 }
 
-function auditArgs(pm: PackageManagerKind, level: string, production: boolean): string[] {
+function auditArgs(
+  pm: PackageManagerKind,
+  level: string,
+  production: boolean,
+  ignoreAdvisories: readonly string[]
+): string[] {
   const args = ["audit", "--audit-level", level];
   if (production) {
     if (pm === "npm") {
@@ -423,6 +428,13 @@ function auditArgs(pm: PackageManagerKind, level: string, production: boolean): 
       args.push("--prod");
     }
     // bun audit has no production-only flag; it always audits everything.
+  }
+  // Only pnpm exposes an ignore flag; npm, yarn classic and bun have no
+  // equivalent, so `audit.ignoreAdvisories` is a pnpm-only escape hatch.
+  if (pm === "pnpm") {
+    for (const advisory of ignoreAdvisories) {
+      args.push(`--ignore=${advisory}`);
+    }
   }
   return args;
 }
@@ -455,7 +467,12 @@ export function buildAuditStep(ctx: BuildContext): PipelineStep[] {
     {
       name: "audit",
       command: ctx.project.packageManager,
-      args: auditArgs(ctx.project.packageManager, level, production),
+      args: auditArgs(
+        ctx.project.packageManager,
+        level,
+        production,
+        ctx.config.audit?.ignoreAdvisories ?? []
+      ),
       // Run where the lockfile lives, which in a monorepo is the workspace root.
       cwd: ctx.project.root,
     },
